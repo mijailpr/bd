@@ -1,68 +1,158 @@
 # INSTRUCCIONES PARA INSERT-CERTIFICADOS.SQL
 
-## ANÁLISIS PREVIO
+## ANÁLISIS PREVIO - ESTRUCTURA REAL
 
-### Procedimientos Encontrados en procedimientos.sql
+### Procedimientos Disponibles
 
 **Para gestión de certificados:**
-- ❌ NO EXISTE: `S_INS_UPD_EMO_CERTIFICADO` → Debemos crear inserciones directas o el procedimiento
-- ❌ NO EXISTE: `S_INS_UPD_RESULTADO_EMO` → Debemos crear inserciones directas o el procedimiento
-- ✅ EXISTE: `S_SEL_CERTIFICADO_VALIDAR_ACCESO` → Solo consulta, no inserta
+- ✅ `S_INS_UPD_CERTIFICADO_EMO` - Insertar/actualizar certificado EMO
+- ✅ `S_SEL_EXAMENES_PERSONA_PROGRAMA` - Obtener exámenes del perfil con estado
+- ✅ `S_INS_UPD_RESULTADO_EXAMEN` - Marcar exámenes como realizados
+- ✅ `S_UPD_GUARDAR_PDF_CERTIFICADO` - Guardar ruta del PDF
+- ✅ `S_SEL_DOCTORES` - Lista de doctores disponibles
 
-**Para consultas:**
-- ✅ `S_SEL_PROTOCOLOS_EMO` → Obtiene exámenes requeridos por perfil y tipo EMO
-- ✅ `S_SEL_DOCTORES` → Lista de doctores disponibles
-- ✅ `S_SEL_DOCTOR_POR_ID` → Obtiene un doctor específico
+### Estructura de Tablas REAL
 
-### Estructura de Tablas Inferida
-
-Basándose en el procedimiento `S_SEL_CERTIFICADO_VALIDAR_ACCESO` (líneas 535-575 de procedimientos.sql):
-
-#### T_EMO_CERTIFICADO
+#### T_CERTIFICADO_EMO
 ```sql
 -- Tabla principal para certificados EMO
 Campos:
 - Id (INT, PK)
+- PersonaProgramaId (INT, FK) → Referencia directa a T_PERSONA_PROGRAMA ✅
+- DoctorId (INT, FK) → Referencia a T_DOCTOR
 - Codigo (NVARCHAR(50)) → Código único del certificado
-- EMOId (INT, FK) → Referencia a T_EMO
-- RutaArchivoPDF (NVARCHAR(500)) → URL del PDF generado (NULL si aún no se generó)
-- NombreArchivo (NVARCHAR(300)) → Nombre del archivo PDF
-- TipoEvaluacion (NVARCHAR(100)) → Ej: "INGRESO", "PERIÓDICO"
-- TipoResultado (NVARCHAR(50)) → Ej: "APTO", "APTO CON RESTRICCIONES", "NO APTO"
+- Password (NVARCHAR(250)) → Contraseña para acceso al certificado
 - PuestoAlQuePostula (NVARCHAR(200)) → Nombre del puesto
-- PuestoActual (NVARCHAR(200)) → Puesto actual (puede ser NULL para ingresos)
-- Observaciones (NVARCHAR(MAX)) → Observaciones médicas
-- Restricciones (NVARCHAR(MAX)) → Restricciones médicas (puede ser NULL)
+- PuestoActual (NVARCHAR(200)) → Puesto actual (puede ser NULL)
+- TipoEvaluacion (NVARCHAR(100)) → "INGRESO", "PERIÓDICO", etc.
+- TipoResultado (NVARCHAR(100)) → "APTO", "APTO CON RESTRICCIONES", "NO APTO"
+- Observaciones (NVARCHAR(800)) → Observaciones médicas
+- Conclusiones (NVARCHAR(800)) → Conclusiones del médico
+- Restricciones (NVARCHAR(800)) → Restricciones médicas (puede ser NULL)
 - FechaEvaluacion (DATETIME) → Fecha en que se realizó la evaluación
 - FechaCaducidad (DATETIME) → Fecha de vencimiento (FechaEvaluacion + 2+ años)
-- FechaGeneracion (DATETIME) → Fecha en que se generó el certificado
-- Estado (NVARCHAR(20)) → "ACTIVO", "INACTIVO"
-- DoctorId (INT, FK) → Referencia a T_DOCTOR (asumo, no visible en SELECT pero lógico)
-```
-
-#### T_EMO
-```sql
--- Tabla intermedia que conecta colaborador con certificado
-Campos:
-- Id (INT, PK)
-- ColaboradorId (INT, FK) → ⚠️ PROBLEMA: Usa T_COLABORADOR (obsoleto)
-  → SOLUCIÓN: Debe usar PersonaProgramaId (FK a T_PERSONA_PROGRAMA)
+- FechaGeneracion (DATETIME) → Fecha en que se generó el PDF
+- RutaArchivoPDF (NVARCHAR(500)) → URL del PDF generado (vacío si no generado)
+- NombreArchivo (NVARCHAR) → Nombre del archivo PDF
+- Estado (CHAR(1)) → '1' = activo, '0' = inactivo
 - FechaCreacion (DATETIME)
-- Estado (CHAR(1))
+- FechaAccion (DATETIME)
 ```
 
 #### T_RESULTADO_EMO
 ```sql
--- Tabla para marcar exámenes como completados
-Campos (inferidos):
+-- Tabla para marcar exámenes como realizados
+Campos:
 - Id (INT, PK)
-- EMOId (INT, FK) → Referencia a T_EMO
-- ExamenMedicoId (INT, FK) → Referencia a T_EXAMEN_MEDICO_OCUPACIONAL
-- Completado (BIT) → 1 = marcado con check, 0 = pendiente
-- FechaRealizacion (DATETIME) → Fecha en que se realizó el examen
-- Resultado (NVARCHAR(MAX)) → Resultado del examen (opcional)
-- Estado (CHAR(1))
+- PersonaProgramaId (INT, FK) → Referencia a T_PERSONA_PROGRAMA
+- ProtocoloEMOId (INT, FK) → Referencia a T_PROTOCOLO_EMO
+- Realizado (BIT) → 1 = realizado, 0 = pendiente
+- Estado (CHAR(1)) → '1' = activo
+- FechaCreacion (DATETIME)
+- FechaAccion (DATETIME)
 ```
+
+---
+
+## PROCEDIMIENTOS ALMACENADOS - DOCUMENTACIÓN
+
+### 1. S_INS_UPD_CERTIFICADO_EMO
+
+**Propósito:** Insertar o actualizar certificado EMO con datos básicos (Etapa 1)
+
+**Parámetros:**
+```sql
+@p_Id INT = NULL,                          -- NULL para INSERT, ID para UPDATE
+@p_PersonaProgramaId INT,                  -- REQUERIDO
+@p_DoctorId INT = NULL,
+@p_Codigo NVARCHAR(50) = NULL,
+@p_Password NVARCHAR(250) = NULL,          -- DNI de la persona
+@p_PuestoAlQuePostula NVARCHAR(200) = NULL,
+@p_PuestoActual NVARCHAR(200) = NULL,
+@p_TipoEvaluacion NVARCHAR(100) = NULL,
+@p_TipoResultado NVARCHAR(100) = NULL,
+@p_Observaciones NVARCHAR(800) = NULL,
+@p_Conclusiones NVARCHAR(800) = NULL,
+@p_Restricciones NVARCHAR(800) = NULL,
+@p_FechaEvaluacion DATETIME = NULL,
+@p_FechaCaducidad DATETIME = NULL,
+-- Parámetros opcionales para actualizar persona
+@p_Nombres NVARCHAR(100) = NULL,
+@p_Apellidos NVARCHAR(100) = NULL,
+@p_Edad INT = NULL,
+@p_Genero NVARCHAR(20) = NULL,
+@p_GrupoSanguineo NVARCHAR(10) = NULL,
+@p_Rh NVARCHAR(10) = NULL
+```
+
+**Retorna:** 1 = éxito, -1 = error
+
+**Notas:**
+- Inserta con RutaArchivoPDF = '' (vacío, no NULL)
+- Actualiza datos de persona si se proporcionan
+
+---
+
+### 2. S_SEL_EXAMENES_PERSONA_PROGRAMA
+
+**Propósito:** Obtener exámenes requeridos del perfil con estado de realización
+
+**Parámetros:**
+```sql
+@p_PersonaProgramaId INT
+```
+
+**Retorna:** Recordset con:
+- ProtocoloEMOId
+- ExamenId
+- NombreExamen
+- EsRequerido
+- Realizado (0 o 1)
+- Solo exámenes con EsRequerido = 1
+
+---
+
+### 3. S_INS_UPD_RESULTADO_EXAMEN
+
+**Propósito:** Marcar un examen como realizado o pendiente (Etapa 2)
+
+**Parámetros:**
+```sql
+@p_PersonaProgramaId INT,
+@p_ProtocoloEMOId INT,
+@p_Realizado BIT                           -- 1 = realizado, 0 = pendiente
+```
+
+**Retorna:**
+- 1 = insertado
+- 2 = actualizado
+- 0 = sin cambios
+- -1 = error general
+- -2 = PersonaPrograma no existe
+- -3 = Protocolo no válido
+
+**Validaciones:**
+- Valida que PersonaProgramaId existe y está activo
+- Valida que ProtocoloEMOId corresponde al PerfilTipoEMO del colaborador
+- Evita duplicados (hace UPDATE si ya existe)
+
+---
+
+### 4. S_UPD_GUARDAR_PDF_CERTIFICADO
+
+**Propósito:** Guardar la ruta del PDF generado (Etapa 3)
+
+**Parámetros:**
+```sql
+@p_PersonaProgramaId INT,
+@p_RutaArchivoPDF NVARCHAR(500)
+```
+
+**Retorna:** 1 = éxito, 0 = no encontrado, -1 = error
+
+**Acción:**
+- Actualiza RutaArchivoPDF
+- Actualiza FechaGeneracion = GETDATE()
 
 ---
 
@@ -71,33 +161,32 @@ Campos (inferidos):
 ### Requisitos del Usuario
 
 1. **3 ETAPAS:**
-   - **Etapa 1 - Datos Básicos**: Llenar todos los campos del certificado EXCEPTO RutaArchivoPDF
-   - **Etapa 2 - Exámenes Completados**: Marcar exámenes requeridos como completados en T_RESULTADO_EMO
-   - **Etapa 3 - Generación de Certificado**: Llenar RutaArchivoPDF solo cuando:
-     - Todos los datos básicos están completos (Etapa 1)
-     - Todos los exámenes requeridos están marcados como completados (Etapa 2)
+   - **Etapa 1 - Datos Básicos**: Usar `S_INS_UPD_CERTIFICADO_EMO` con RutaArchivoPDF vacío
+   - **Etapa 2 - Exámenes Realizados**: Usar `S_INS_UPD_RESULTADO_EXAMEN` para cada examen
+   - **Etapa 3 - Generación PDF**: Usar `S_UPD_GUARDAR_PDF_CERTIFICADO` solo si todos los exámenes están realizados
 
 2. **VARIABILIDAD:**
-   - Algunos colaboradores: SOLO Etapa 1 (datos básicos completos, sin exámenes)
-   - Algunos colaboradores: Etapa 1 + algunos exámenes de Etapa 2 (datos completos + exámenes parciales)
-   - Algunos colaboradores: Etapa 1 + todos exámenes de Etapa 2 (datos completos + exámenes completos, SIN PDF)
-   - Algunos colaboradores: Etapa 1 + Etapa 2 + Etapa 3 (certificado completo CON PDF)
+   - 20% colaboradores: SOLO Etapa 1 (datos básicos, sin exámenes)
+   - 15% colaboradores: Etapa 1 + algunos exámenes (parcial)
+   - 25% colaboradores: Etapa 1 + todos exámenes, SIN PDF
+   - 40% colaboradores: COMPLETO con PDF (Etapa 1 + 2 + 3)
 
 3. **ESTADOS DEL CERTIFICADO:**
-   - **Sin URL**: RutaArchivoPDF es NULL
+   - **Sin URL**: RutaArchivoPDF = '' (vacío)
    - **Emitido**: RutaArchivoPDF tiene contenido
    - **Vencido**: GETDATE() > FechaCaducidad
-   - **Por vencer**: FechaCaducidad - GETDATE() < 60 días (2 meses)
-   - **Vigente**: FechaCaducidad - GETDATE() >= 60 días
+   - **Por vencer**: DATEDIFF(DAY, GETDATE(), FechaCaducidad) < 60
+   - **Vigente**: DATEDIFF(DAY, GETDATE(), FechaCaducidad) >= 60
 
 4. **REGLAS DE FECHAS:**
-   - FechaEvaluacion: Puede ser en el pasado (últimos 6 meses desde GETDATE())
-   - FechaCaducidad: Siempre FechaEvaluacion + (2 a 3 años)
-   - FechaGeneracion: Fecha en que se "generó" el PDF (puede ser igual o posterior a FechaEvaluacion)
+   - FechaEvaluacion: 0-180 días atrás (últimos 6 meses)
+   - FechaCaducidad: FechaEvaluacion + 2 o 3 años
+   - Para certificados vencidos: FechaEvaluacion más antigua
 
 5. **OTROS:**
-   - Código de certificado ÚNICO (formato: "EMO-" + AÑO + "-" + NÚMERO)
-   - Doctor variado por certificado (seleccionar aleatoriamente de doctores disponibles)
+   - Código único: "EMO-" + AÑO + "-" + NÚMERO (6 dígitos)
+   - Password: DNI de la persona
+   - Doctor aleatorio por certificado
 
 ---
 
@@ -107,341 +196,181 @@ Campos (inferidos):
 ```
 Colaborador: Juan Carlos Pérez López
 DNI: 62345678
-PersonaProgramaId: 1 (obtenido de T_PERSONA_PROGRAMA)
-ProgramaEMOId: 1 (Programa Operativo)
-PerfilTipoEMOId: 1 (Cajero - INGRESO)
+PersonaProgramaId: 1 (de T_PERSONA_PROGRAMA)
+Perfil: Cajero - INGRESO
 ```
 
-### PASO 1: Obtener Información Base
+### PASO 1: Obtener Datos del Colaborador
 
-#### 1.1. Obtener datos del colaborador
 ```sql
 SELECT
     PP.Id AS PersonaProgramaId,
-    PP.ProgramaEMOId,
-    PP.PerfilTipoEMOId,
-    P.Id AS PersonaId,
     P.Nombres,
     P.Apellidos,
-    P.NDocumentoIdentidad,
-    P.Edad,
-    P.Genero,
-    P.GrupoSanguineo,
-    P.Rh,
-    PTE.TipoEMO,
-    PO.Nombre AS NombrePerfil
+    P.NDocumentoIdentidad AS DNI,
+    PO.Nombre AS NombrePerfil,
+    PTE.TipoEMO
 FROM T_PERSONA_PROGRAMA PP
 INNER JOIN T_PERSONA P ON PP.PersonaId = P.Id
 INNER JOIN T_PERFIL_TIPO_EMO PTE ON PP.PerfilTipoEMOId = PTE.Id
 INNER JOIN T_PERFIL_OCUPACIONAL PO ON PTE.PerfilOcupacionalId = PO.Id
-WHERE PP.Id = 1;  -- PersonaProgramaId del colaborador
-
--- RESULTADO:
--- PersonaProgramaId: 1
--- Nombres: Juan Carlos
--- Apellidos: Pérez López
--- DNI: 62345678
--- TipoEMO: INGRESO
--- NombrePerfil: Cajero
+WHERE PP.Id = 1;
 ```
 
-#### 1.2. Obtener exámenes requeridos para el perfil
+### PASO 2: Obtener Exámenes Requeridos
+
 ```sql
--- Usar procedimiento existente
-EXEC S_SEL_PROTOCOLOS_EMO
-    @p_PerfilOcupacionalId = 1,  -- Cajero (obtenido de PTE.PerfilOcupacionalId)
-    @p_TipoEMOId = NULL;  -- O el ID correspondiente a "INGRESO"
-
--- Alternativa con query directa:
-SELECT
-    PRO.Id AS ProtocoloId,
-    PRO.ExamenMedicoId,
-    EM.Nombre AS NombreExamen,
-    PRO.EsRequerido
-FROM T_PROTOCOLO_EMO PRO
-INNER JOIN T_PERFIL_TIPO_EMO PTE ON PRO.PerfilTipoEMOId = PTE.Id
-INNER JOIN T_EXAMEN_MEDICO_OCUPACIONAL EM ON PRO.ExamenMedicoId = EM.Id
-WHERE PTE.Id = 1  -- PerfilTipoEMOId del colaborador
-  AND PRO.EsRequerido = 1  -- Solo exámenes obligatorios
-  AND PRO.Estado = '1';
-
--- RESULTADO (ejemplo):
--- Examen 1: Hemograma Completo
--- Examen 5: Radiografía de Tórax PA
--- Examen 12: Examen Oftalmológico
--- Examen 22: Evaluación Psicológica
--- Total: 4 exámenes requeridos
+EXEC S_SEL_EXAMENES_PERSONA_PROGRAMA @p_PersonaProgramaId = 1;
+-- Retorna: 4 exámenes requeridos (ProtocoloEMOIds: 1, 5, 12, 22)
 ```
 
-#### 1.3. Obtener un doctor aleatorio
+### PASO 3: Obtener Doctor Aleatorio
+
 ```sql
--- Seleccionar doctor aleatoriamente
-SELECT TOP 1
-    Id AS DoctorId,
-    Nombres + ' ' + Apellidos AS NombreCompleto,
-    Codigo AS CodigoCMP,
-    Especialidad
+SELECT TOP 1 Id AS DoctorId
 FROM T_DOCTOR
 WHERE Estado = 'ACTIVO'
-ORDER BY NEWID();  -- Ordenar aleatoriamente
-
--- RESULTADO (ejemplo):
--- DoctorId: 1
--- NombreCompleto: Carlos Eduardo Ramírez García
--- CodigoCMP: CMP12345
--- Especialidad: Medicina Ocupacional
+ORDER BY NEWID();
+-- Retorna: DoctorId = 1
 ```
 
-### PASO 2: Crear Registro T_EMO
-
-⚠️ **PROBLEMA IDENTIFICADO:** La tabla T_EMO actualmente usa `ColaboradorId` que referencia a T_COLABORADOR (tabla obsoleta según claude.md).
-
-**SOLUCIÓN TEMPORAL:** Usar `PersonaProgramaId` en lugar de `ColaboradorId` si la tabla ya fue actualizada, o crear la relación correcta.
-
-```sql
--- ⚠️ ESTO ASUME QUE T_EMO FUE ACTUALIZADO PARA USAR PersonaProgramaId
-INSERT INTO T_EMO (PersonaProgramaId, FechaCreacion, Estado)
-VALUES (
-    1,           -- PersonaProgramaId del colaborador
-    GETDATE(),   -- Fecha de creación
-    '1'          -- Estado activo
-);
-
--- Obtener el ID generado
-DECLARE @EMOId INT = SCOPE_IDENTITY();
--- RESULTADO: @EMOId = 1
-```
-
-### PASO 3: ETAPA 1 - Insertar Datos Básicos del Certificado (SIN PDF)
+### PASO 4: ETAPA 1 - Insertar Datos Básicos
 
 ```sql
 -- Generar código único
-DECLARE @CodigoCertificado NVARCHAR(50);
 DECLARE @AnioActual INT = YEAR(GETDATE());
-DECLARE @NumeroSecuencial INT;
-
--- Obtener siguiente número secuencial
-SELECT @NumeroSecuencial = ISNULL(MAX(CAST(RIGHT(Codigo, 6) AS INT)), 0) + 1
-FROM T_EMO_CERTIFICADO
-WHERE Codigo LIKE 'EMO-' + CAST(@AnioActual AS VARCHAR) + '-%';
-
-SET @CodigoCertificado = 'EMO-' + CAST(@AnioActual AS VARCHAR) + '-' + RIGHT('000000' + CAST(@NumeroSecuencial AS VARCHAR), 6);
--- RESULTADO: @CodigoCertificado = "EMO-2025-000001"
+DECLARE @CodigoCertificado NVARCHAR(50) = 'EMO-' + CAST(@AnioActual AS VARCHAR) + '-000001';
+DECLARE @Password NVARCHAR(250) = '62345678';  -- DNI
 
 -- Generar fechas
-DECLARE @FechaEvaluacion DATETIME;
-DECLARE @FechaCaducidad DATETIME;
-DECLARE @DiasAtras INT = CAST((RAND() * 180) AS INT);  -- 0 a 6 meses atrás
-DECLARE @AniosVigencia INT = 2 + CAST((RAND() * 2) AS INT);  -- 2 o 3 años
+DECLARE @DiasAtras INT = 90;  -- 3 meses atrás
+DECLARE @FechaEvaluacion DATETIME = DATEADD(DAY, -@DiasAtras, GETDATE());
+DECLARE @FechaCaducidad DATETIME = DATEADD(YEAR, 2, @FechaEvaluacion);
 
-SET @FechaEvaluacion = DATEADD(DAY, -@DiasAtras, GETDATE());
-SET @FechaCaducidad = DATEADD(YEAR, @AniosVigencia, @FechaEvaluacion);
+-- Insertar certificado (Etapa 1)
+EXEC S_INS_UPD_CERTIFICADO_EMO
+    @p_Id = NULL,                                  -- Nuevo certificado
+    @p_PersonaProgramaId = 1,
+    @p_DoctorId = 1,
+    @p_Codigo = @CodigoCertificado,
+    @p_Password = @Password,
+    @p_PuestoAlQuePostula = 'Cajero',
+    @p_PuestoActual = NULL,                        -- INGRESO no tiene puesto actual
+    @p_TipoEvaluacion = 'INGRESO',
+    @p_TipoResultado = 'APTO',
+    @p_Observaciones = 'Sin observaciones',
+    @p_Conclusiones = 'Apto para el puesto de Cajero',
+    @p_Restricciones = NULL,
+    @p_FechaEvaluacion = @FechaEvaluacion,
+    @p_FechaCaducidad = @FechaCaducidad;
 
--- Insertar certificado CON datos básicos, SIN RutaArchivoPDF
-INSERT INTO T_EMO_CERTIFICADO (
-    Codigo,
-    EMOId,
-    DoctorId,
-    RutaArchivoPDF,        -- ❌ NULL para Etapa 1
-    NombreArchivo,         -- ❌ NULL para Etapa 1
-    TipoEvaluacion,
-    TipoResultado,
-    PuestoAlQuePostula,
-    PuestoActual,
-    Observaciones,
-    Restricciones,
-    FechaEvaluacion,
-    FechaCaducidad,
-    FechaGeneracion,       -- ❌ NULL para Etapa 1
-    Estado
-) VALUES (
-    @CodigoCertificado,            -- 'EMO-2025-000001'
-    @EMOId,                        -- 1
-    1,                             -- DoctorId obtenido aleatoriamente
-    NULL,                          -- ❌ SIN PDF EN ETAPA 1
-    NULL,                          -- ❌ SIN nombre de archivo
-    'INGRESO',                     -- Tipo de evaluación (del perfil)
-    'APTO',                        -- Resultado (aleatorio: APTO, APTO CON RESTRICCIONES, NO APTO)
-    'Cajero',                      -- Puesto al que postula (NombrePerfil)
-    NULL,                          -- Puesto actual (NULL para INGRESO)
-    'Sin observaciones',           -- Observaciones (puede variar)
-    NULL,                          -- Restricciones (NULL o texto)
-    @FechaEvaluacion,              -- Ej: 2024-10-15
-    @FechaCaducidad,               -- Ej: 2026-10-15 (2 años después)
-    NULL,                          -- ❌ SIN fecha de generación en Etapa 1
-    'ACTIVO'                       -- Estado
-);
-
--- RESULTADO: Certificado creado con ID 1, SOLO datos básicos, SIN PDF
+-- RESULTADO: Certificado con ID 1, SIN PDF (RutaArchivoPDF = '')
 ```
 
-**ESTADO DESPUÉS DE ETAPA 1:**
-- ✅ Registro en T_EMO creado
-- ✅ Registro en T_EMO_CERTIFICADO creado con datos básicos
-- ❌ RutaArchivoPDF = NULL
-- ❌ Sin exámenes marcados en T_RESULTADO_EMO
-- **Estado del certificado:** "Sin URL"
+**Estado después de Etapa 1:**
+- ✅ Certificado creado en T_CERTIFICADO_EMO
+- ❌ RutaArchivoPDF = '' (vacío)
+- ❌ Sin exámenes en T_RESULTADO_EMO
+- **Estado:** "Sin URL"
 
 ---
 
-### PASO 4: ETAPA 2 - Marcar Exámenes como Completados
+### PASO 5: ETAPA 2 - Marcar Exámenes (Opciones)
 
-Esta etapa puede ser:
-- **Completa**: Marcar TODOS los exámenes requeridos
-- **Parcial**: Marcar solo ALGUNOS exámenes requeridos
-- **Omitida**: No marcar ningún examen (quedarse solo en Etapa 1)
-
-#### Ejemplo: Marcar 2 de 4 exámenes como completados (PARCIAL)
+#### Opción A: PARCIAL (2 de 4 exámenes)
 
 ```sql
--- Supongamos que el perfil requiere 4 exámenes (IDs: 1, 5, 12, 22)
--- Vamos a marcar solo 2 como completados: 1 y 5
+-- Marcar examen 1 (ProtocoloEMOId = 1)
+EXEC S_INS_UPD_RESULTADO_EXAMEN
+    @p_PersonaProgramaId = 1,
+    @p_ProtocoloEMOId = 1,
+    @p_Realizado = 1;
 
--- Examen 1: Hemograma Completo
-INSERT INTO T_RESULTADO_EMO (
-    EMOId,
-    ExamenMedicoId,
-    Completado,
-    FechaRealizacion,
-    Resultado,
-    Estado
-) VALUES (
-    @EMOId,                        -- 1
-    1,                             -- ExamenMedicoId: Hemograma
-    1,                             -- ✅ Marcado como completado
-    @FechaEvaluacion,              -- Misma fecha de evaluación
-    'Normal',                      -- Resultado del examen
-    '1'                            -- Estado activo
-);
+-- Marcar examen 5 (ProtocoloEMOId = 5)
+EXEC S_INS_UPD_RESULTADO_EXAMEN
+    @p_PersonaProgramaId = 1,
+    @p_ProtocoloEMOId = 5,
+    @p_Realizado = 1;
 
--- Examen 5: Radiografía de Tórax PA
-INSERT INTO T_RESULTADO_EMO (
-    EMOId,
-    ExamenMedicoId,
-    Completado,
-    FechaRealizacion,
-    Resultado,
-    Estado
-) VALUES (
-    @EMOId,                        -- 1
-    5,                             -- ExamenMedicoId: Radiografía
-    1,                             -- ✅ Marcado como completado
-    @FechaEvaluacion,
-    'Sin hallazgos patológicos',
-    '1'
-);
-
--- Exámenes 12 y 22: NO se insertan registros (quedan pendientes)
+-- Exámenes 12 y 22: NO se marcan
 ```
 
-**ESTADO DESPUÉS DE ETAPA 2 PARCIAL:**
-- ✅ 2 de 4 exámenes marcados como completados
-- ❌ Certificado AÚN NO puede tener PDF (faltan exámenes)
-- **Estado del certificado:** "Sin URL" (porque no tiene todos los exámenes)
+**Estado:** 2 de 4 exámenes realizados → NO apto para PDF
 
-#### Ejemplo: Marcar TODOS los exámenes (COMPLETA)
+#### Opción B: COMPLETO (4 de 4 exámenes)
 
 ```sql
--- Marcar también los exámenes 12 y 22
-
-INSERT INTO T_RESULTADO_EMO (EMOId, ExamenMedicoId, Completado, FechaRealizacion, Resultado, Estado)
-VALUES (@EMOId, 12, 1, @FechaEvaluacion, 'Normal', '1');
-
-INSERT INTO T_RESULTADO_EMO (EMOId, ExamenMedicoId, Completado, FechaRealizacion, Resultado, Estado)
-VALUES (@EMOId, 22, 1, @FechaEvaluacion, 'Apto para el cargo', '1');
+-- Marcar los 4 exámenes
+EXEC S_INS_UPD_RESULTADO_EXAMEN @p_PersonaProgramaId = 1, @p_ProtocoloEMOId = 1, @p_Realizado = 1;
+EXEC S_INS_UPD_RESULTADO_EXAMEN @p_PersonaProgramaId = 1, @p_ProtocoloEMOId = 5, @p_Realizado = 1;
+EXEC S_INS_UPD_RESULTADO_EXAMEN @p_PersonaProgramaId = 1, @p_ProtocoloEMOId = 12, @p_Realizado = 1;
+EXEC S_INS_UPD_RESULTADO_EXAMEN @p_PersonaProgramaId = 1, @p_ProtocoloEMOId = 22, @p_Realizado = 1;
 ```
 
-**ESTADO DESPUÉS DE ETAPA 2 COMPLETA:**
-- ✅ 4 de 4 exámenes marcados como completados
-- ✅ Certificado LISTO para generar PDF
-- ❌ Aún no tiene PDF generado
-- **Estado del certificado:** "Sin URL" (hasta que se genere el PDF)
+**Estado:** 4 de 4 exámenes realizados → LISTO para PDF
 
 ---
 
-### PASO 5: ETAPA 3 - Generar Certificado (Asignar PDF)
-
-**CONDICIÓN:** Solo se ejecuta si:
-1. Todos los datos básicos están completos (Etapa 1 ✅)
-2. Todos los exámenes requeridos están marcados (Etapa 2 ✅)
+### PASO 6: ETAPA 3 - Generar PDF (Solo si todos los exámenes están)
 
 ```sql
--- Validar que todos los exámenes están completos
+-- Validar que todos los exámenes están realizados
 DECLARE @ExamenesRequeridos INT;
-DECLARE @ExamenesCompletados INT;
+DECLARE @ExamenesRealizados INT;
 
--- Contar exámenes requeridos
+-- Obtener exámenes requeridos del perfil
 SELECT @ExamenesRequeridos = COUNT(*)
 FROM T_PROTOCOLO_EMO PRO
-INNER JOIN T_PERFIL_TIPO_EMO PTE ON PRO.PerfilTipoEMOId = PTE.Id
-WHERE PTE.Id = 1  -- PerfilTipoEMOId del colaborador
-  AND PRO.EsRequerido = 1
-  AND PRO.Estado = '1';
--- RESULTADO: @ExamenesRequeridos = 4
+INNER JOIN T_PERSONA_PROGRAMA PP ON PRO.PerfilTipoEMOId = PP.PerfilTipoEMOId
+WHERE PP.Id = 1 AND PRO.EsRequerido = 1 AND PRO.Estado = '1';
 
--- Contar exámenes completados
-SELECT @ExamenesCompletados = COUNT(*)
+-- Obtener exámenes realizados
+SELECT @ExamenesRealizados = COUNT(*)
 FROM T_RESULTADO_EMO
-WHERE EMOId = @EMOId
-  AND Completado = 1
-  AND Estado = '1';
--- RESULTADO: @ExamenesCompletados = 4 (si están todos)
+WHERE PersonaProgramaId = 1 AND Realizado = 1 AND Estado = '1';
 
--- Si están todos completos, generar PDF
-IF @ExamenesCompletados >= @ExamenesRequeridos
+-- Si están todos, generar PDF
+IF @ExamenesRealizados >= @ExamenesRequeridos
 BEGIN
     DECLARE @RutaPDF NVARCHAR(500);
-    DECLARE @NombreArchivo NVARCHAR(300);
-    DECLARE @FechaGeneracion DATETIME = GETDATE();
+    DECLARE @DNI NVARCHAR(20) = '62345678';
 
-    SET @NombreArchivo = @CodigoCertificado + '_' + REPLACE(P.NDocumentoIdentidad, ' ', '') + '.pdf';
-    SET @RutaPDF = 'https://storage.medivalle.com/certificados/' + @NombreArchivo;
-    -- RESULTADO: 'https://storage.medivalle.com/certificados/EMO-2025-000001_62345678.pdf'
+    SET @RutaPDF = 'https://storage.medivalle.com/certificados/EMO-2025-000001_' + @DNI + '.pdf';
 
-    -- Actualizar certificado con PDF
-    UPDATE T_EMO_CERTIFICADO
-    SET RutaArchivoPDF = @RutaPDF,
-        NombreArchivo = @NombreArchivo,
-        FechaGeneracion = @FechaGeneracion
-    WHERE EMOId = @EMOId;
+    EXEC S_UPD_GUARDAR_PDF_CERTIFICADO
+        @p_PersonaProgramaId = 1,
+        @p_RutaArchivoPDF = @RutaPDF;
 END
 ```
 
-**ESTADO DESPUÉS DE ETAPA 3:**
-- ✅ Certificado COMPLETO con PDF generado
-- ✅ RutaArchivoPDF tiene valor
-- ✅ FechaGeneracion registrada
-- **Estado del certificado:**
-  - Si `GETDATE() > FechaCaducidad`: "Vencido"
-  - Si `DATEDIFF(DAY, GETDATE(), FechaCaducidad) < 60`: "Por vencer"
-  - Si `DATEDIFF(DAY, GETDATE(), FechaCaducidad) >= 60`: "Vigente"
+**Estado después de Etapa 3:**
+- ✅ Certificado COMPLETO con PDF
+- ✅ RutaArchivoPDF = 'https://...'
+- ✅ FechaGeneracion actualizada
+- **Estado:** Vigente / Por vencer / Vencido (según FechaCaducidad)
 
 ---
 
-## RESUMEN DE VARIABILIDAD
+## DISTRIBUCIÓN DE VARIABILIDAD
 
-Para simular datos realistas, aplicar estas distribuciones:
-
-### Distribución de Colaboradores por Etapa
+### Sobre 120 Colaboradores (20 por programa × 6 programas):
 
 ```
-TOTAL COLABORADORES: 120 (20 por cada uno de los 6 programas)
-
-Distribución sugerida:
-- 20% (24 colaboradores): Solo Etapa 1 (datos básicos, sin exámenes)
-- 15% (18 colaboradores): Etapa 1 + exámenes parciales (50% de exámenes)
-- 25% (30 colaboradores): Etapa 1 + todos exámenes, SIN PDF (no generado aún)
-- 40% (48 colaboradores): Etapa 1 + Etapa 2 + Etapa 3 COMPLETA (con PDF)
+- 24 colaboradores (20%): Solo Etapa 1 (sin exámenes)
+- 18 colaboradores (15%): Etapa 1 + 50% de exámenes
+- 30 colaboradores (25%): Etapa 1 + 100% exámenes, SIN PDF
+- 48 colaboradores (40%): COMPLETO con PDF
 ```
 
-### Distribución de Estados (solo para los con PDF)
+### Estados de Certificados con PDF (48 colaboradores):
 
-De los 48 colaboradores con PDF (40%):
-- 60% (29 colaboradores): Certificado VIGENTE (vence en más de 2 meses)
-- 25% (12 colaboradores): Certificado POR VENCER (vence en menos de 2 meses)
-- 15% (7 colaboradores): Certificado VENCIDO (ya caducó)
+```
+- 29 certificados (60%): VIGENTE (vence en 60+ días)
+- 12 certificados (25%): POR VENCER (vence en <60 días)
+- 7 certificados (15%): VENCIDO (ya caducó)
+```
 
-### Variación de Datos
+### Datos Variables:
 
 **Tipos de Resultado:**
 - 80%: "APTO"
@@ -455,61 +384,36 @@ De los 48 colaboradores con PDF (40%):
 - "Evitar exposición prolongada a ruidos fuertes"
 
 **Observaciones:**
-- 70%: "Sin observaciones" o "Evaluación satisfactoria"
-- 20%: Observaciones médicas generales ("Mantener control de presión arterial", "Hidratación adecuada")
-- 10%: Observaciones específicas del puesto
+- "Sin observaciones"
+- "Evaluación satisfactoria"
+- "Mantener control de presión arterial"
+- "Hidratación adecuada durante jornada"
 
-**Doctores:**
-- Rotar aleatoriamente entre los doctores disponibles en T_DOCTOR
+**Conclusiones:**
+- "Apto para el puesto de [NombrePerfil]"
+- "Apto con restricciones para el puesto de [NombrePerfil]"
+- "No apto para el puesto de [NombrePerfil]"
 
 ---
 
 ## CONSULTAS DE VALIDACIÓN
 
-### 1. Validar certificados creados
-```sql
-SELECT
-    CERT.Codigo,
-    P.Nombres + ' ' + P.Apellidos AS Colaborador,
-    P.NDocumentoIdentidad AS DNI,
-    PE.Nombre AS Programa,
-    PO.Nombre AS Perfil,
-    CERT.TipoEvaluacion,
-    CERT.TipoResultado,
-    CERT.FechaEvaluacion,
-    CERT.FechaCaducidad,
-    CASE
-        WHEN CERT.RutaArchivoPDF IS NULL THEN 'Sin URL'
-        WHEN GETDATE() > CERT.FechaCaducidad THEN 'Vencido'
-        WHEN DATEDIFF(DAY, GETDATE(), CERT.FechaCaducidad) < 60 THEN 'Por vencer'
-        ELSE 'Vigente'
-    END AS EstadoCertificado,
-    (SELECT COUNT(*) FROM T_RESULTADO_EMO WHERE EMOId = EMO.Id AND Completado = 1) AS ExamenesCompletados
-FROM T_EMO_CERTIFICADO CERT
-INNER JOIN T_EMO EMO ON CERT.EMOId = EMO.Id
-INNER JOIN T_PERSONA_PROGRAMA PP ON EMO.PersonaProgramaId = PP.Id
-INNER JOIN T_PERSONA P ON PP.PersonaId = P.Id
-INNER JOIN T_PROGRAMA_EMO PE ON PP.ProgramaEMOId = PE.Id
-INNER JOIN T_PERFIL_TIPO_EMO PTE ON PP.PerfilTipoEMOId = PTE.Id
-INNER JOIN T_PERFIL_OCUPACIONAL PO ON PTE.PerfilOcupacionalId = PO.Id
-ORDER BY CERT.Id;
-```
+### 1. Resumen de certificados por estado
 
-### 2. Validar distribución de estados
 ```sql
 SELECT
     CASE
-        WHEN CERT.RutaArchivoPDF IS NULL THEN 'Sin URL'
+        WHEN CERT.RutaArchivoPDF = '' THEN 'Sin URL'
         WHEN GETDATE() > CERT.FechaCaducidad THEN 'Vencido'
         WHEN DATEDIFF(DAY, GETDATE(), CERT.FechaCaducidad) < 60 THEN 'Por vencer'
         ELSE 'Vigente'
     END AS EstadoCertificado,
     COUNT(*) AS Cantidad
-FROM T_EMO_CERTIFICADO CERT
-WHERE CERT.Estado = 'ACTIVO'
+FROM T_CERTIFICADO_EMO CERT
+WHERE CERT.Estado = '1'
 GROUP BY
     CASE
-        WHEN CERT.RutaArchivoPDF IS NULL THEN 'Sin URL'
+        WHEN CERT.RutaArchivoPDF = '' THEN 'Sin URL'
         WHEN GETDATE() > CERT.FechaCaducidad THEN 'Vencido'
         WHEN DATEDIFF(DAY, GETDATE(), CERT.FechaCaducidad) < 60 THEN 'Por vencer'
         ELSE 'Vigente'
@@ -517,74 +421,41 @@ GROUP BY
 ORDER BY Cantidad DESC;
 ```
 
-### 3. Validar exámenes por colaborador
+### 2. Detalle de certificados con exámenes
+
 ```sql
 SELECT
+    CERT.Codigo,
     P.Nombres + ' ' + P.Apellidos AS Colaborador,
-    CERT.Codigo AS CodigoCertificado,
-    (SELECT COUNT(*) FROM T_PROTOCOLO_EMO PRO WHERE PRO.PerfilTipoEMOId = PP.PerfilTipoEMOId AND PRO.EsRequerido = 1) AS ExamenesRequeridos,
-    (SELECT COUNT(*) FROM T_RESULTADO_EMO WHERE EMOId = EMO.Id AND Completado = 1) AS ExamenesCompletados,
+    PE.Nombre AS Programa,
+    PO.Nombre AS Perfil,
+    CERT.TipoEvaluacion,
+    CERT.TipoResultado,
+    (SELECT COUNT(*)
+     FROM T_PROTOCOLO_EMO PRO
+     WHERE PRO.PerfilTipoEMOId = PP.PerfilTipoEMOId
+       AND PRO.EsRequerido = 1 AND PRO.Estado = '1') AS ExamenesRequeridos,
+    (SELECT COUNT(*)
+     FROM T_RESULTADO_EMO RE
+     WHERE RE.PersonaProgramaId = PP.Id
+       AND RE.Realizado = 1 AND RE.Estado = '1') AS ExamenesRealizados,
     CASE
-        WHEN (SELECT COUNT(*) FROM T_RESULTADO_EMO WHERE EMOId = EMO.Id AND Completado = 1) >=
-             (SELECT COUNT(*) FROM T_PROTOCOLO_EMO PRO WHERE PRO.PerfilTipoEMOId = PP.PerfilTipoEMOId AND PRO.EsRequerido = 1)
-        THEN 'COMPLETO'
-        WHEN (SELECT COUNT(*) FROM T_RESULTADO_EMO WHERE EMOId = EMO.Id AND Completado = 1) > 0
-        THEN 'PARCIAL'
-        ELSE 'SIN EXÁMENES'
-    END AS EstadoExamenes
-FROM T_EMO_CERTIFICADO CERT
-INNER JOIN T_EMO EMO ON CERT.EMOId = EMO.Id
-INNER JOIN T_PERSONA_PROGRAMA PP ON EMO.PersonaProgramaId = PP.Id
+        WHEN CERT.RutaArchivoPDF = '' THEN 'Sin PDF'
+        WHEN GETDATE() > CERT.FechaCaducidad THEN 'Vencido'
+        WHEN DATEDIFF(DAY, GETDATE(), CERT.FechaCaducidad) < 60 THEN 'Por vencer'
+        ELSE 'Vigente'
+    END AS EstadoCertificado
+FROM T_CERTIFICADO_EMO CERT
+INNER JOIN T_PERSONA_PROGRAMA PP ON CERT.PersonaProgramaId = PP.Id
 INNER JOIN T_PERSONA P ON PP.PersonaId = P.Id
-ORDER BY EstadoExamenes, P.Apellidos;
+INNER JOIN T_PROGRAMA_EMO PE ON PP.ProgramaEMOId = PE.Id
+INNER JOIN T_PERFIL_TIPO_EMO PTE ON PP.PerfilTipoEMOId = PTE.Id
+INNER JOIN T_PERFIL_OCUPACIONAL PO ON PTE.PerfilOcupacionalId = PO.Id
+WHERE CERT.Estado = '1'
+ORDER BY EstadoCertificado, P.Apellidos;
 ```
 
 ---
 
-## DECISIONES TÉCNICAS PENDIENTES
-
-⚠️ **IMPORTANTE:** Antes de escribir el código SQL, necesitamos confirmar:
-
-1. **Estructura de T_EMO:**
-   - ¿Usa `ColaboradorId` (FK a T_COLABORADOR obsoleto)?
-   - ¿O ya fue actualizado a `PersonaProgramaId` (FK a T_PERSONA_PROGRAMA)?
-   - **Acción:** Consultar esquema real de la tabla
-
-2. **Nombres exactos de campos:**
-   - ¿T_EXAMEN_MEDICO_OCUPACIONAL existe o es T_EXAMEN_MEDICO?
-   - Verificar nombres exactos en esquema
-
-3. **Procedimientos:**
-   - ¿Crear procedimientos S_INS_UPD_EMO_CERTIFICADO y S_INS_UPD_RESULTADO_EMO?
-   - ¿O usar INSERT directo?
-   - **Recomendación:** Usar INSERT directo para simplificar el script de datos de prueba
-
-4. **Formato de código de certificado:**
-   - ¿"EMO-2025-000001" es correcto?
-   - ¿O prefieren otro formato?
-
----
-
-## PRÓXIMOS PASOS
-
-Una vez validadas las decisiones técnicas pendientes:
-
-1. ✅ Crear script `insert-certificados.sql` con:
-   - Cursor para recorrer todos los colaboradores en T_PERSONA_PROGRAMA
-   - Lógica de variabilidad (20% solo datos, 15% parcial, 25% completo sin PDF, 40% con PDF)
-   - Generación de fechas aleatorias pero realistas
-   - Asignación aleatoria de doctores
-   - Validación de exámenes requeridos vs completados
-   - Resumen final con estadísticas
-
-2. ✅ Actualizar `claude.md` con:
-   - Documentación de tablas T_EMO, T_EMO_CERTIFICADO, T_RESULTADO_EMO
-   - Flujo de generación de certificados
-   - Estados posibles y su lógica
-
-3. ✅ Probar el script y validar resultados
-
----
-
-**Documento creado:** 2025-01-14
-**Versión:** 1.0 - Borrador para revisión
+**Documento actualizado:** 2025-01-14
+**Versión:** 2.0 - Con procedimientos reales
