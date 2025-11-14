@@ -274,7 +274,13 @@ BEGIN
         DECLARE @ExamenesAMarcar INT = 0;
 
         -- Determinar cuántos exámenes marcar según variabilidad
-        IF @TotalProcesados <= @Limite35Pct
+        -- IMPORTANTE: Si tendrá PDF, SIEMPRE marcar TODOS los exámenes
+        IF @TendraPDF = 1
+        BEGIN
+            -- Si va a tener PDF, TODOS los exámenes son obligatorios
+            SET @ExamenesAMarcar = @TotalExamenes;
+        END
+        ELSE IF @TotalProcesados <= @Limite35Pct
         BEGIN
             -- 15%: Exámenes PARCIALES (50%)
             SET @ExamenesAMarcar = @TotalExamenes / 2;
@@ -282,7 +288,7 @@ BEGIN
         END
         ELSE
         BEGIN
-            -- 25% + 40%: TODOS los exámenes
+            -- 25%: TODOS los exámenes pero sin PDF
             SET @ExamenesAMarcar = @TotalExamenes;
         END
 
