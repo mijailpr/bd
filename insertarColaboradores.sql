@@ -8,7 +8,9 @@
 -- utilizando el procedimiento S_INS_UPD_PERSONA_PROGRAMA
 --
 -- REGLAS DE NEGOCIO APLICADAS:
--- 1. Cada colaborador tiene DNI único (no se puede repetir)
+-- 1. Cada colaborador tiene DNI único de 8 dígitos (no se puede repetir)
+--    - Primeros 2 dígitos: aleatorios entre 62 y 73
+--    - Siguientes 6 dígitos: aleatorios
 -- 2. Un colaborador NO puede estar en 2 programas diferentes
 -- 3. El T_PERFIL_OCUPACIONAL asignado debe pertenecer al mismo programa
 -- 4. Cada T_PERSONA_PROGRAMA tiene un PerfilTipoEMOId (combinación de perfil + tipo EMO)
@@ -19,6 +21,7 @@
 -- - Para cada programa, consulta TODOS sus perfiles ocupacionales con tipo INGRESO
 -- - Distribuye 20 colaboradores entre los perfiles disponibles
 -- - Si un programa no tiene perfiles, se omite con advertencia
+-- - DNIs realistas: 8 dígitos con prefijos 62-73 (rango típico de DNIs peruanos)
 --
 -- ============================================
 
@@ -33,8 +36,8 @@ PRINT '╚═══════════════════════�
 PRINT '';
 
 -- Variables globales
-DECLARE @DNIContador INT = 10000000; -- Base para DNIs únicos
 DECLARE @TotalColaboradoresInsertar INT = 20; -- Colaboradores por programa
+DECLARE @DNIsGenerados TABLE (DNI NVARCHAR(20)); -- Para evitar duplicados
 
 -- Cursor para recorrer todos los programas
 DECLARE @ProgramaId INT;
@@ -124,30 +127,49 @@ BEGIN
         DECLARE @i INT = 0;
         WHILE @i < @ColabsParaEstePerfil AND @ColaboradoresInsertados < @TotalColaboradoresInsertar
         BEGIN
-            SET @DNIContador = @DNIContador + 1;
+            -- Generar DNI único de 8 dígitos
+            -- Primeros 2 dígitos: entre 62 y 73
+            -- Siguientes 6 dígitos: aleatorios
+            DECLARE @DNI NVARCHAR(20);
+            DECLARE @DNIExiste INT = 1;
+
+            WHILE @DNIExiste = 1
+            BEGIN
+                DECLARE @PrimerDos INT = 62 + CAST((RAND() * 12) AS INT); -- Entre 62 y 73
+                DECLARE @Ultimos6 INT = 100000 + CAST((RAND() * 899999) AS INT); -- Entre 100000 y 999999
+                SET @DNI = CAST(@PrimerDos AS NVARCHAR(2)) + CAST(@Ultimos6 AS NVARCHAR(6));
+
+                -- Verificar si el DNI ya existe
+                IF NOT EXISTS (SELECT 1 FROM @DNIsGenerados WHERE DNI = @DNI)
+                BEGIN
+                    INSERT INTO @DNIsGenerados (DNI) VALUES (@DNI);
+                    SET @DNIExiste = 0;
+                END
+            END
 
             -- Generar datos aleatorios para variedad
-            DECLARE @GrupoSang NVARCHAR(10) = CASE (@DNIContador % 4)
+            DECLARE @Semilla INT = CAST((RAND() * 1000000) AS INT);
+            DECLARE @GrupoSang NVARCHAR(10) = CASE (@Semilla % 4)
                 WHEN 0 THEN 'O'
                 WHEN 1 THEN 'A'
                 WHEN 2 THEN 'B'
                 ELSE 'AB'
             END;
 
-            DECLARE @RhFactor NVARCHAR(10) = CASE (@DNIContador % 2)
+            DECLARE @RhFactor NVARCHAR(10) = CASE (@Semilla % 2)
                 WHEN 0 THEN '+'
                 ELSE '-'
             END;
 
-            DECLARE @Genero NVARCHAR(20) = CASE (@DNIContador % 2)
+            DECLARE @Genero NVARCHAR(20) = CASE (@Semilla % 2)
                 WHEN 0 THEN 'M'
                 ELSE 'F'
             END;
 
-            DECLARE @Edad INT = 23 + (@DNIContador % 18); -- Edades entre 23 y 40
+            DECLARE @Edad INT = 23 + (@Semilla % 18); -- Edades entre 23 y 40
 
             -- Nombres aleatorios
-            DECLARE @Nombres NVARCHAR(100) = CASE (@DNIContador % 10)
+            DECLARE @Nombres NVARCHAR(100) = CASE (@Semilla % 10)
                 WHEN 0 THEN CASE @Genero WHEN 'M' THEN 'Juan Carlos' ELSE 'María Elena' END
                 WHEN 1 THEN CASE @Genero WHEN 'M' THEN 'Pedro Miguel' ELSE 'Ana Patricia' END
                 WHEN 2 THEN CASE @Genero WHEN 'M' THEN 'Luis Fernando' ELSE 'Carmen Rosa' END
@@ -160,7 +182,7 @@ BEGIN
                 ELSE CASE @Genero WHEN 'M' THEN 'Miguel Ángel' ELSE 'Isabella Catalina' END
             END;
 
-            DECLARE @Apellidos NVARCHAR(100) = CASE ((@DNIContador / 10) % 10)
+            DECLARE @Apellidos NVARCHAR(100) = CASE ((@Semilla / 10) % 10)
                 WHEN 0 THEN 'Pérez López'
                 WHEN 1 THEN 'García Rodríguez'
                 WHEN 2 THEN 'Martínez Silva'
@@ -179,7 +201,7 @@ BEGIN
                 @Nombres,
                 @Apellidos,
                 'DNI',
-                @DNIContador,                           -- DNI único
+                @DNI,                                   -- DNI único aleatorio
                 NULL,                                   -- Telefono
                 NULL,                                   -- Correo
                 @Edad,

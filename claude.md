@@ -381,10 +381,12 @@ Incluyendo: Hemograma, Radiografías, Exámenes oftalmológicos, Audiometría, E
 
 ### Colaboradores (Cantidad Variable)
 - 20 colaboradores por cada programa EMO activo
-- DNIs únicos incrementales desde 10000000
+- DNIs únicos de 8 dígitos con formato realista:
+  - Primeros 2 dígitos: aleatorios entre 62 y 73 (rango típico peruano)
+  - Siguientes 6 dígitos: aleatorios
 - Distribuidos equitativamente entre TODOS los perfiles disponibles de cada programa
 - Generación dinámica: el script detecta automáticamente todos los programas y perfiles
-- Variedad en datos: nombres, edades, grupos sanguíneos, géneros
+- Variedad en datos: nombres, edades (23-40), grupos sanguíneos (O, A, B, AB), géneros (M/F)
 
 ---
 
@@ -461,8 +463,9 @@ Este script es **completamente dinámico**:
 - Para cada programa, detecta TODOS sus perfiles con tipo INGRESO
 - Distribuye equitativamente 20 colaboradores entre los perfiles disponibles
 - Si un programa no tiene perfiles configurados, lo omite con advertencia
-- Genera datos variados (nombres, edades, grupos sanguíneos)
-- DNIs únicos incrementales
+- Genera datos variados (nombres, edades, grupos sanguíneos, géneros)
+- **DNIs realistas de 8 dígitos**: Primeros 2 dígitos entre 62-73, resto aleatorio
+- Sistema anti-duplicados: verifica que cada DNI sea único
 - Incluye resumen detallado al final mostrando distribución por programa y perfil
 
 ---
