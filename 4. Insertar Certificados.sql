@@ -221,21 +221,27 @@ BEGIN
 
         IF @RandomEstado < 20
         BEGIN
-            -- 20%: VENCIDO (fecha de evaluación hace más de 2 años)
-            SET @DiasAtras = 730 + (ABS(CHECKSUM(NEWID())) % 180);  -- 730-910 días atrás (más de 2 años)
+            -- 20%: VENCIDO
+            -- Para que esté vencido: FechaEvaluacion + 730 días < HOY
+            -- Entonces: FechaEvaluacion < HOY - 730 días
+            -- DiasAtras > 730
+            SET @DiasAtras = 731 + (ABS(CHECKSUM(NEWID())) % 365);  -- 731-1095 días atrás (vencido hace 1 día hasta 1 año)
         END
         ELSE IF @RandomEstado < 40
         BEGIN
-            -- 20%: POR VENCER (0-2 meses antes de caducidad)
-            -- Si la vigencia es 2 años (730 días), y queremos que esté por vencer (0-60 días restantes)
-            -- entonces la evaluación fue hace 670-730 días
-            SET @DiasAtras = 670 + (ABS(CHECKSUM(NEWID())) % 60);  -- 670-730 días atrás
+            -- 20%: POR VENCER (le quedan 0-60 días para vencer)
+            -- Para que le queden 0-60 días: HOY < FechaEvaluacion + 730 < HOY + 60
+            -- Entonces: HOY - 730 < FechaEvaluacion < HOY - 670
+            -- DiasAtras entre 670-730
+            SET @DiasAtras = 670 + (ABS(CHECKSUM(NEWID())) % 61);  -- 670-730 días atrás (faltan 0-60 días)
         END
         ELSE
         BEGIN
-            -- 60%: VIGENTE (más de 2 meses restantes)
-            -- Para que esté vigente con más de 2 meses, evaluación hace menos de 670 días
-            SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 670;  -- 0-670 días atrás
+            -- 60%: VIGENTE (le quedan más de 60 días)
+            -- Para que sea vigente: FechaEvaluacion + 730 > HOY + 60
+            -- Entonces: FechaEvaluacion > HOY - 670
+            -- DiasAtras < 670
+            SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 670;  -- 0-669 días atrás (más de 60 días restantes)
         END
     END
     ELSE
