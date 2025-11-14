@@ -717,3 +717,355 @@ BEGIN
 END
 go
 
+-- =============================================
+-- S_INS_UPD_CERTIFICADO_EMO
+-- Inserta o actualiza información del certificado EMO
+-- Incluye actualización de datos de la persona
+-- =============================================
+CREATE OR ALTER PROCEDURE S_INS_UPD_CERTIFICADO_EMO
+(
+    @p_Id INT = NULL,
+    @p_PersonaProgramaId INT,
+
+    -- Parámetros del Certificado
+    @p_DoctorId INT = NULL,
+    @p_Codigo NVARCHAR(50) = NULL,
+    @p_Password NVARCHAR(250) = NULL,
+    @p_PuestoAlQuePostula NVARCHAR(200) = NULL,
+    @p_PuestoActual NVARCHAR(200) = NULL,
+    @p_TipoEvaluacion NVARCHAR(100) = NULL,
+    @p_TipoResultado NVARCHAR(100) = NULL,
+    @p_Observaciones NVARCHAR(800) = NULL,
+    @p_Conclusiones NVARCHAR(800) = NULL,
+    @p_Restricciones NVARCHAR(800) = NULL,
+    @p_FechaEvaluacion DATETIME = NULL,
+    @p_FechaCaducidad DATETIME = NULL,
+
+    -- Parámetros de la Persona (opcionales para actualización)
+    @p_Nombres NVARCHAR(100) = NULL,
+    @p_Apellidos NVARCHAR(100) = NULL,
+    @p_Edad INT = NULL,
+    @p_Genero NVARCHAR(20) = NULL,
+    @p_GrupoSanguineo NVARCHAR(10) = NULL,
+    @p_Rh NVARCHAR(10) = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @VALOR INT = 0;
+    DECLARE @PersonaId INT = NULL;
+
+    -- 1. OBTENER PersonaId desde PersonaPrograma
+    SELECT @PersonaId = PersonaId
+    FROM T_PERSONA_PROGRAMA
+    WHERE Id = @p_PersonaProgramaId AND Estado = '1';
+
+    IF @PersonaId IS NULL
+    BEGIN
+        SET @VALOR = -1;
+        RETURN @VALOR;
+    END
+
+    -- 2. ACTUALIZAR DATOS DE LA PERSONA (si se proporcionaron)
+    IF @p_Nombres IS NOT NULL
+       OR @p_Apellidos IS NOT NULL
+       OR @p_Edad IS NOT NULL
+       OR @p_Genero IS NOT NULL
+       OR @p_GrupoSanguineo IS NOT NULL
+       OR @p_Rh IS NOT NULL
+    BEGIN
+        UPDATE T_PERSONA
+        SET Nombres = ISNULL(@p_Nombres, Nombres),
+            Apellidos = ISNULL(@p_Apellidos, Apellidos),
+            Edad = ISNULL(@p_Edad, Edad),
+            Genero = ISNULL(@p_Genero, Genero),
+            GrupoSanguineo = ISNULL(@p_GrupoSanguineo, GrupoSanguineo),
+            Rh = ISNULL(@p_Rh, Rh),
+            FechaAccion = GETDATE()
+        WHERE Id = @PersonaId;
+
+        IF @@ROWCOUNT > 0
+            SET @VALOR = 1;
+    END
+
+    -- 3. MANEJAR CERTIFICADO
+    IF @p_Id IS NOT NULL
+    BEGIN
+        -- UPDATE CERTIFICADO
+        UPDATE T_CERTIFICADO_EMO
+        SET DoctorId = ISNULL(@p_DoctorId, DoctorId),
+            Codigo = ISNULL(@p_Codigo, Codigo),
+            Password = ISNULL(@p_Password, Password),
+            PuestoAlQuePostula = ISNULL(@p_PuestoAlQuePostula, PuestoAlQuePostula),
+            PuestoActual = ISNULL(@p_PuestoActual, PuestoActual),
+            TipoEvaluacion = ISNULL(@p_TipoEvaluacion, TipoEvaluacion),
+            TipoResultado = ISNULL(@p_TipoResultado, TipoResultado),
+            Observaciones = @p_Observaciones,
+            Conclusiones = @p_Conclusiones,
+            Restricciones = @p_Restricciones,
+            FechaEvaluacion = ISNULL(@p_FechaEvaluacion, FechaEvaluacion),
+            FechaCaducidad = ISNULL(@p_FechaCaducidad, FechaCaducidad),
+            FechaAccion = GETDATE()
+        WHERE Id = @p_Id;
+
+        IF @@ROWCOUNT > 0
+            SET @VALOR = 1;
+    END
+    ELSE
+    BEGIN
+        -- INSERT CERTIFICADO
+        INSERT INTO T_CERTIFICADO_EMO (
+            PersonaProgramaId,
+            DoctorId,
+            Codigo,
+            Password,
+            PuestoAlQuePostula,
+            PuestoActual,
+            TipoEvaluacion,
+            TipoResultado,
+            Observaciones,
+            Conclusiones,
+            Restricciones,
+            FechaEvaluacion,
+            FechaCaducidad,
+            RutaArchivoPDF,
+            NombreArchivo,
+            Estado,
+            FechaAccion,
+            FechaCreacion
+        )
+        VALUES (
+            @p_PersonaProgramaId,
+            @p_DoctorId,
+            @p_Codigo,
+            @p_Password,
+            @p_PuestoAlQuePostula,
+            @p_PuestoActual,
+            @p_TipoEvaluacion,
+            @p_TipoResultado,
+            @p_Observaciones,
+            @p_Conclusiones,
+            @p_Restricciones,
+            @p_FechaEvaluacion,
+            @p_FechaCaducidad,
+            '',
+            '',
+            '1',
+            GETDATE(),
+            GETDATE()
+        );
+
+        IF @@ROWCOUNT > 0
+            SET @VALOR = 1;
+    END
+
+    IF @@ERROR <> 0
+        SET @VALOR = -1;
+
+    SET NOCOUNT OFF;
+    RETURN @VALOR;
+END
+go
+
+-- =============================================
+-- PROCEDIMIENTO: EXÁMENES DEL PERFIL CON ESTADO DE REALIZACIÓN
+-- Actualizado para nueva estructura con T_PERFIL_TIPO_EMO
+-- Solo muestra exámenes requeridos
+-- =============================================
+CREATE OR ALTER PROCEDURE S_SEL_EXAMENES_PERSONA_PROGRAMA
+    @p_PersonaProgramaId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        -- Información del Perfil Ocupacional
+        PO.Id AS PerfilOcupacionalId,
+        PO.Nombre AS NombrePerfilOcupacional,
+        PO.Estado AS EstadoPerfilOcupacional,
+
+        -- Información del Programa EMO
+        PO.ProgramaEMOId,
+        PE.Nombre AS NombreProgramaEMO,
+
+        -- Información del Perfil-Tipo EMO
+        PTE.Id AS PerfilTipoEMOId,
+        PTE.TipoEMO,
+        PTE.Estado AS EstadoPerfilTipo,
+
+        -- Información del Protocolo
+        PRO.Id AS ProtocoloEMOId,
+        PRO.EsRequerido,
+        PRO.Estado AS EstadoProtocolo,
+
+        -- Información del Examen Médico
+        EMO.Id AS ExamenId,
+        EMO.Nombre AS NombreExamen,
+        EMO.Estado AS EstadoExamen,
+
+        -- Información del Resultado (si existe)
+        RE.Id AS ResultadoEMOId,
+        ISNULL(RE.Realizado, 0) AS Realizado,
+        RE.Estado AS EstadoResultado,
+        RE.FechaCreacion AS FechaRealizacion,
+        RE.FechaAccion AS FechaAccionResultado
+
+    FROM T_PERSONA_PROGRAMA PP
+
+    -- Join con Perfil-Tipo EMO (puede ser NULL según estructura)
+    INNER JOIN T_PERFIL_TIPO_EMO PTE ON PP.PerfilTipoEMOId = PTE.Id
+
+    -- Join con Perfil Ocupacional
+    INNER JOIN T_PERFIL_OCUPACIONAL PO ON PTE.PerfilOcupacionalId = PO.Id
+
+    -- Join con Programa EMO
+    INNER JOIN T_PROGRAMA_EMO PE ON PO.ProgramaEMOId = PE.Id
+
+    -- Join con Protocolos (usando la nueva referencia a PerfilTipoEMOId)
+    INNER JOIN T_PROTOCOLO_EMO PRO ON PTE.Id = PRO.PerfilTipoEMOId
+
+    -- Join con Exámenes Médicos
+    INNER JOIN T_EXAMEN_MEDICO_OCUPACIONAL EMO ON PRO.ExamenMedicoOcupacionalId = EMO.Id
+
+    -- Left Join con Resultados para ver si están realizados
+    LEFT JOIN T_RESULTADO_EMO RE ON PRO.Id = RE.ProtocoloEMOId
+        AND RE.PersonaProgramaId = @p_PersonaProgramaId
+        AND RE.Estado = '1'
+
+    WHERE PP.Id = @p_PersonaProgramaId
+      AND PP.Estado = '1'
+      AND PTE.Estado = '1'
+      AND PRO.Estado = '1'
+      AND EMO.Estado = '1'
+      AND PRO.EsRequerido = 1  -- ⭐ FILTRO AGREGADO: Solo exámenes requeridos
+
+    ORDER BY EMO.Nombre;
+
+    SET NOCOUNT OFF;
+END
+go
+
+-- =============================================
+-- VERSIÓN MEJORADA con validaciones
+-- =============================================
+CREATE OR ALTER PROCEDURE S_INS_UPD_RESULTADO_EXAMEN
+(
+    @p_PersonaProgramaId INT,
+    @p_ProtocoloEMOId INT,
+    @p_Realizado BIT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @VALOR INT = 0;
+    DECLARE @ResultadoId INT;
+    DECLARE @CambioRealizado BIT = 0;
+
+    -- 1. VALIDAR que PersonaProgramaId existe y está activo
+    IF NOT EXISTS (
+        SELECT 1 FROM T_PERSONA_PROGRAMA
+        WHERE Id = @p_PersonaProgramaId AND Estado = '1'
+    )
+    BEGIN
+        SET @VALOR = -2; -- Código: PersonaPrograma no existe o inactivo
+        RETURN @VALOR;
+    END
+
+    -- 2. VALIDAR que ProtocoloEMOId existe, está activo y corresponde al PerfilTipoEMO correcto
+    IF NOT EXISTS (
+        SELECT 1
+        FROM T_PROTOCOLO_EMO PRO
+        INNER JOIN T_PERSONA_PROGRAMA PP ON PP.PerfilTipoEMOId = PRO.PerfilTipoEMOId
+        WHERE PRO.Id = @p_ProtocoloEMOId
+          AND PRO.Estado = '1'
+          AND PP.Id = @p_PersonaProgramaId
+    )
+    BEGIN
+        SET @VALOR = -3; -- Código: Protocolo no válido para esta PersonaPrograma
+        RETURN @VALOR;
+    END
+
+    -- 3. Verificar si ya existe el registro
+    SELECT @ResultadoId = Id
+    FROM T_RESULTADO_EMO
+    WHERE PersonaProgramaId = @p_PersonaProgramaId
+      AND ProtocoloEMOId = @p_ProtocoloEMOId
+      AND Estado = '1';
+
+    IF @ResultadoId IS NOT NULL
+    BEGIN
+        -- UPDATE solo si hay cambio real
+        UPDATE T_RESULTADO_EMO
+        SET Realizado = @p_Realizado,
+            FechaAccion = GETDATE()
+        WHERE Id = @ResultadoId
+          AND Realizado <> @p_Realizado; -- Solo actualiza si cambió
+
+        SET @CambioRealizado = @@ROWCOUNT;
+        SET @VALOR = CASE
+            WHEN @CambioRealizado > 0 THEN 2  -- Código: Actualizado
+            ELSE 0                             -- Código: Sin cambios
+        END;
+    END
+    ELSE
+    BEGIN
+        -- INSERT
+        INSERT INTO T_RESULTADO_EMO (
+            PersonaProgramaId,
+            ProtocoloEMOId,
+            Realizado,
+            Estado,
+            FechaAccion,
+            FechaCreacion
+        )
+        VALUES (
+            @p_PersonaProgramaId,
+            @p_ProtocoloEMOId,
+            @p_Realizado,
+            '1',
+            GETDATE(),
+            GETDATE()
+        );
+
+        SET @VALOR = CASE WHEN @@ROWCOUNT > 0 THEN 1 ELSE 0 END; -- Código: Insertado
+    END
+
+    IF @@ERROR <> 0
+        SET @VALOR = -1; -- Código: Error general
+
+    SET NOCOUNT OFF;
+    RETURN @VALOR;
+END
+go
+
+-- =============================================
+-- S_UPD_GUARDAR_PDF_CERTIFICADO
+-- Actualiza la ruta del PDF y la fecha de generación
+-- =============================================
+CREATE OR ALTER PROCEDURE S_UPD_GUARDAR_PDF_CERTIFICADO
+(
+    @p_PersonaProgramaId INT,
+    @p_RutaArchivoPDF NVARCHAR(500)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @VALOR INT = 0;
+
+    UPDATE T_CERTIFICADO_EMO
+    SET RutaArchivoPDF = @p_RutaArchivoPDF,
+        FechaGeneracion = GETDATE(),
+        FechaAccion = GETDATE()
+    WHERE PersonaProgramaId = @p_PersonaProgramaId
+      AND Estado = '1';
+
+    SET @VALOR = CASE WHEN @@ROWCOUNT > 0 THEN 1 ELSE 0 END;
+
+    IF @@ERROR <> 0
+        SET @VALOR = -1;
+
+    SET NOCOUNT OFF;
+    RETURN @VALOR;
+END
+go
+
