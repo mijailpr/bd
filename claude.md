@@ -112,7 +112,7 @@ Define los diferentes puestos o roles laborales dentro de un programa.
 - `FechaAccion` (DATETIME)
 
 **Reglas de Negocio:**
-1. Una persona (DNI único) puede estar en VARIOS programas DIFERENTES
+1. Una persona (DNI único) SOLO puede estar en UN programa (no puede estar en múltiples programas)
 2. Una persona NO puede estar DOS VECES en el MISMO programa
 3. El `PerfilTipoEMOId` debe pertenecer al mismo programa que `ProgramaEMOId`
 4. El perfil ocupacional debe ser del mismo programa
@@ -331,9 +331,9 @@ EXEC S_INS_UPD_PERSONA_PROGRAMA
 - No pueden existir dos personas con el mismo DNI
 
 ### 2. Colaboradores y Programas
-- Un colaborador (T_PERSONA_PROGRAMA) pertenece a UN solo programa a la vez
+- Un colaborador (T_PERSONA_PROGRAMA) pertenece a UN SOLO programa
 - NO puede estar registrado dos veces en el mismo programa
-- SÍ puede estar en programas diferentes (múltiples registros en T_PERSONA_PROGRAMA)
+- NO puede estar en programas diferentes (solo un registro activo en T_PERSONA_PROGRAMA por persona)
 
 ### 3. Perfiles Ocupacionales
 - Cada perfil ocupacional pertenece a UN solo programa
@@ -379,10 +379,12 @@ El sistema incluye datos de prueba con:
 ### 33 Exámenes Médicos
 Incluyendo: Hemograma, Radiografías, Exámenes oftalmológicos, Audiometría, Evaluaciones psicológicas, etc.
 
-### 60 Colaboradores
-- 20 colaboradores por programa
-- DNIs únicos desde 10000001 hasta 30000020
-- Distribuidos en diferentes perfiles ocupacionales
+### Colaboradores (Cantidad Variable)
+- 20 colaboradores por cada programa EMO activo
+- DNIs únicos incrementales desde 10000000
+- Distribuidos equitativamente entre TODOS los perfiles disponibles de cada programa
+- Generación dinámica: el script detecta automáticamente todos los programas y perfiles
+- Variedad en datos: nombres, edades, grupos sanguíneos, géneros
 
 ---
 
@@ -445,13 +447,23 @@ ORDER BY PE.Id;
 - **tablas.sql**: Definiciones de tablas y datos iniciales básicos
 - **procedimientos.sql**: Todos los procedimientos almacenados
 - **insertarDatos.sql**: Datos de prueba (entidades, programas, perfiles, exámenes, protocolos)
-- **insertarColaboradores.sql**: Inserción de 60 colaboradores de prueba
+- **insertarColaboradores.sql**: Inserción dinámica de colaboradores (20 por programa)
 
 ### Orden de Ejecución
 1. `tablas.sql` - Crear estructura
 2. `procedimientos.sql` - Crear procedimientos
-3. `insertarDatos.sql` - Cargar datos maestros
-4. `insertarColaboradores.sql` - Cargar colaboradores
+3. `insertarDatos.sql` - Cargar datos maestros (programas, perfiles, protocolos)
+4. `insertarColaboradores.sql` - Cargar colaboradores (detecta programas automáticamente)
+
+### Características de insertarColaboradores.sql
+Este script es **completamente dinámico**:
+- Consulta automáticamente TODOS los programas EMO activos
+- Para cada programa, detecta TODOS sus perfiles con tipo INGRESO
+- Distribuye equitativamente 20 colaboradores entre los perfiles disponibles
+- Si un programa no tiene perfiles configurados, lo omite con advertencia
+- Genera datos variados (nombres, edades, grupos sanguíneos)
+- DNIs únicos incrementales
+- Incluye resumen detallado al final mostrando distribución por programa y perfil
 
 ---
 
