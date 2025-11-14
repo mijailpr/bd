@@ -1,27 +1,30 @@
 -- =============================================
 -- SCRIPT: insert-certificados.sql
 -- Descripción: Genera certificados EMO con variabilidad realista
---              usando 2 tipos de certificados:
+--              usando 3 tipos de certificados:
 --
---              TIPO 1 (Sin PDF):
---                - Datos completos del certificado
---                - Exámenes: parciales o todos (aleatorio)
---                - Sin RutaArchivoPDF
+--              TIPO 0 (10%): Sin certificado
+--                - No se crea registro
+--                - Colaborador sin proceso EMO iniciado
 --
---              TIPO 2 (Con PDF):
---                - Datos completos del certificado
---                - Exámenes: TODOS completados (obligatorio)
+--              TIPO 1 (40%): Sin PDF - 4 sub-tipos
+--                1A (10%): Datos mínimos (sin fechas, sin exámenes)
+--                1B (10%): Completo sin exámenes
+--                1C (10%): Completo + exámenes parciales (30-70%)
+--                1D (10%): Completo + todos exámenes, sin PDF
+--
+--              TIPO 2 (50%): Con PDF
+--                - Datos completos OBLIGATORIO
+--                - TODOS exámenes OBLIGATORIO
 --                - RutaArchivoPDF: certificados/{personaprogramaid}/certificado.pdf
---                - Estados por fechas: Vigente/Por vencer/Vencido
+--                - Estados: Vigente (60%), Por vencer (20%), Vencido (20%)
 --
---              * Todos los certificados: FechaCaducidad = FechaEvaluacion + 2 años
---              * Vigente: >2 meses antes de caducidad
---              * Por vencer: 0-2 meses antes de caducidad
---              * Vencido: Fecha caducidad ya pasó
+--              * FechaCaducidad = FechaEvaluacion + 2 años (SIEMPRE)
+--              * Puestos: UNO de dos (PuestoAlQuePostula O PuestoActual)
 --
 -- Autor: Sistema MediValle
 -- Fecha: 2025-01-14
--- Actualización: 2025-01-14 - Simplificación a 2 tipos
+-- Actualización: 2025-01-14 - Lógica completa 3 tipos
 -- =============================================
 
 USE DB_MEDIVALLE
@@ -41,13 +44,15 @@ DECLARE @CodigoSecuencial INT = 1;
 DECLARE @AnioActual INT = YEAR(GETDATE());
 
 -- Contadores para estadísticas
-DECLARE @ContadorSinPDF INT = 0;          -- Tipo 1: Sin PDF
+DECLARE @ContadorSinCertificado INT = 0;  -- Tipo 0: Sin certificado
+DECLARE @ContadorDatosMinimos INT = 0;    -- Tipo 1A: Datos mínimos
+DECLARE @ContadorSinExamenes INT = 0;     -- Tipo 1B: Completo sin exámenes
+DECLARE @ContadorParcial INT = 0;         -- Tipo 1C: Completo + parcial
+DECLARE @ContadorCompletoSinPDF INT = 0;  -- Tipo 1D: Completo + todos, sin PDF
 DECLARE @ContadorConPDF INT = 0;          -- Tipo 2: Con PDF
-DECLARE @ContadorExamenesParciales INT = 0;  -- Sin PDF con exámenes parciales
-DECLARE @ContadorExamenesCompletos INT = 0;  -- Sin PDF con exámenes completos
-DECLARE @ContadorVigente INT = 0;         -- Con PDF vigente
-DECLARE @ContadorPorVencer INT = 0;       -- Con PDF por vencer
-DECLARE @ContadorVencido INT = 0;         -- Con PDF vencido
+DECLARE @ContadorVigente INT = 0;         -- Tipo 2 vigente
+DECLARE @ContadorPorVencer INT = 0;       -- Tipo 2 por vencer
+DECLARE @ContadorVencido INT = 0;         -- Tipo 2 vencido
 
 -- Obtener total de colaboradores
 SELECT @TotalColaboradores = COUNT(*)
@@ -57,9 +62,10 @@ WHERE Estado = '1';
 PRINT 'Total de colaboradores encontrados: ' + CAST(@TotalColaboradores AS VARCHAR);
 PRINT '';
 PRINT 'Distribución objetivo:';
-PRINT '  - 50% Certificados SIN PDF (exámenes parciales o completos)';
-PRINT '  - 50% Certificados CON PDF (todos exámenes + validaciones)';
-PRINT '    * Estados: Vigente (>2 meses), Por vencer (0-2 meses), Vencido';
+PRINT '  - 10% Sin certificado (Tipo 0)';
+PRINT '  - 40% Certificados SIN PDF (Tipo 1: 1A, 1B, 1C, 1D)';
+PRINT '  - 50% Certificados CON PDF (Tipo 2: validaciones completas)';
+PRINT '    * Estados con PDF: Vigente (60%), Por vencer (20%), Vencido (20%)';
 PRINT '';
 
 -- =============================================
@@ -123,13 +129,52 @@ BEGIN
     -- =============================================
     -- DETERMINAR TIPO DE CERTIFICADO ALEATORIAMENTE
     -- =============================================
-    DECLARE @TendraPDF BIT = 0;
+    DECLARE @TipoCertificado INT;  -- 0=Sin cert, 1=Sin PDF, 2=Con PDF
+    DECLARE @SubTipo1 INT = 0;     -- Para Tipo 1: 1A, 1B, 1C, 1D
     DECLARE @RandomTipo INT = ABS(CHECKSUM(NEWID())) % 100;
 
-    IF @RandomTipo < 50
-        SET @TendraPDF = 0;  -- 50%: Sin PDF
+    IF @RandomTipo < 10
+    BEGIN
+        -- 10%: TIPO 0 - Sin certificado
+        SET @TipoCertificado = 0;
+        SET @ContadorSinCertificado = @ContadorSinCertificado + 1;
+
+        -- Skip - Continuar al siguiente colaborador
+        FETCH NEXT FROM CursorColaboradores INTO @PersonaProgramaId, @PersonaId, @Nombres, @Apellidos, @DNI, @NombrePerfil, @TipoEMO, @PerfilTipoEMOId;
+        CONTINUE;
+    END
+    ELSE IF @RandomTipo < 50
+    BEGIN
+        -- 40%: TIPO 1 - Sin PDF (determinar sub-tipo)
+        SET @TipoCertificado = 1;
+
+        DECLARE @RandomSubTipo INT = ABS(CHECKSUM(NEWID())) % 100;
+        IF @RandomSubTipo < 25
+        BEGIN
+            SET @SubTipo1 = 1;  -- 1A: Datos mínimos
+            SET @ContadorDatosMinimos = @ContadorDatosMinimos + 1;
+        END
+        ELSE IF @RandomSubTipo < 50
+        BEGIN
+            SET @SubTipo1 = 2;  -- 1B: Completo sin exámenes
+            SET @ContadorSinExamenes = @ContadorSinExamenes + 1;
+        END
+        ELSE IF @RandomSubTipo < 75
+        BEGIN
+            SET @SubTipo1 = 3;  -- 1C: Completo + parcial
+            SET @ContadorParcial = @ContadorParcial + 1;
+        END
+        ELSE
+        BEGIN
+            SET @SubTipo1 = 4;  -- 1D: Completo + todos
+            SET @ContadorCompletoSinPDF = @ContadorCompletoSinPDF + 1;
+        END
+    END
     ELSE
-        SET @TendraPDF = 1;  -- 50%: Con PDF
+    BEGIN
+        -- 50%: TIPO 2 - Con PDF
+        SET @TipoCertificado = 2;
+    END
 
     -- =============================================
     -- VARIABLES PARA ESTE COLABORADOR
@@ -137,121 +182,230 @@ BEGIN
     DECLARE @CodigoCertificado NVARCHAR(50);
     DECLARE @Password NVARCHAR(250);
     DECLARE @DoctorId INT;
+    DECLARE @TipoEvaluacion NVARCHAR(100);
     DECLARE @TipoResultado NVARCHAR(100);
     DECLARE @Observaciones NVARCHAR(800);
     DECLARE @Conclusiones NVARCHAR(800);
     DECLARE @Restricciones NVARCHAR(800);
+    DECLARE @PuestoAlQuePostula NVARCHAR(200);
+    DECLARE @PuestoActual NVARCHAR(200);
     DECLARE @FechaEvaluacion DATETIME;
     DECLARE @FechaCaducidad DATETIME;
     DECLARE @DiasAtras INT;
     DECLARE @AniosVigencia INT;
+    DECLARE @DatosCompletos BIT = 0;
 
-    -- Generar código único
+    -- Determinar si necesita datos completos
+    -- Tipo 1A (SubTipo1=1): NO necesita datos completos
+    -- Resto: SÍ necesita datos completos
+    IF @SubTipo1 = 1
+        SET @DatosCompletos = 0;
+    ELSE
+        SET @DatosCompletos = 1;
+
+    -- Generar código y password (SIEMPRE)
     SET @CodigoCertificado = 'EMO-' + CAST(@AnioActual AS VARCHAR) + '-' + RIGHT('000000' + CAST(@CodigoSecuencial AS VARCHAR), 6);
     SET @CodigoSecuencial = @CodigoSecuencial + 1;
-
-    -- Password = DNI
     SET @Password = @DNI;
 
-    -- Seleccionar doctor aleatorio
-    SELECT TOP 1 @DoctorId = DoctorId
-    FROM @Doctores
-    ORDER BY NEWID();
-
-    -- =============================================
-    -- DETERMINAR TIPO DE RESULTADO Y DATOS
-    -- =============================================
-    DECLARE @RandomResultado INT = ABS(CHECKSUM(NEWID())) % 100;
-
-    IF @RandomResultado < 80
+    -- Generar datos completos solo si es necesario
+    IF @DatosCompletos = 1
     BEGIN
-        -- 80%: APTO
-        SET @TipoResultado = 'APTO';
+        -- Seleccionar doctor aleatorio
+        SELECT TOP 1 @DoctorId = DoctorId
+        FROM @Doctores
+        ORDER BY NEWID();
+
+        -- Generar puestos (UNO de dos, NUNCA ambos)
+        DECLARE @RandomPuesto INT = ABS(CHECKSUM(NEWID())) % 2;
+        IF @RandomPuesto = 0
+        BEGIN
+            SET @PuestoAlQuePostula = @NombrePerfil;
+            SET @PuestoActual = NULL;
+        END
+        ELSE
+        BEGIN
+            SET @PuestoAlQuePostula = NULL;
+            SET @PuestoActual = @NombrePerfil;
+        END
+
+        -- Generar TipoEvaluacion
+        DECLARE @RandomTipoEval INT = ABS(CHECKSUM(NEWID())) % 100;
+        IF @RandomTipoEval < 40
+            SET @TipoEvaluacion = 'examenPreocupacional';
+        ELSE IF @RandomTipoEval < 85
+            SET @TipoEvaluacion = 'examenOcupacionalAnual';
+        ELSE IF @RandomTipoEval < 95
+            SET @TipoEvaluacion = 'examenOcupacionalDeRetiro';
+        ELSE
+            SET @TipoEvaluacion = 'otros';
+    END
+    ELSE
+    BEGIN
+        -- Tipo 1A: Datos mínimos (dejar NULL)
+        SET @DoctorId = NULL;
+        SET @TipoEvaluacion = NULL;
+        SET @PuestoAlQuePostula = NULL;
+        SET @PuestoActual = NULL;
+    END
+
+    -- =============================================
+    -- DETERMINAR TIPO DE RESULTADO Y DATOS (Solo si DatosCompletos)
+    -- =============================================
+    IF @DatosCompletos = 1
+    BEGIN
+        DECLARE @RandomResultado INT = ABS(CHECKSUM(NEWID())) % 100;
+
+        IF @RandomResultado < 80
+        BEGIN
+            -- 80%: apto
+            SET @TipoResultado = 'apto';
+
+            -- Observaciones (60% tiene, 40% NULL)
+            DECLARE @RandomObs INT = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomObs < 60
+            BEGIN
+                DECLARE @RandomTextoObs INT = ABS(CHECKSUM(NEWID())) % 4;
+                IF @RandomTextoObs = 0
+                    SET @Observaciones = 'Sin observaciones';
+                ELSE IF @RandomTextoObs = 1
+                    SET @Observaciones = 'Evaluación satisfactoria';
+                ELSE IF @RandomTextoObs = 2
+                    SET @Observaciones = 'Mantener hábitos saludables';
+                ELSE
+                    SET @Observaciones = 'Requiere evaluación adicional';
+            END
+            ELSE
+                SET @Observaciones = NULL;
+
+            -- Restricciones (20% aleatorio, 80% NULL)
+            DECLARE @RandomRestAleatorio INT = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomRestAleatorio < 20
+                SET @Restricciones = 'Uso obligatorio de lentes correctivos';
+            ELSE
+                SET @Restricciones = NULL;
+
+            -- Conclusiones (70% tiene, 30% NULL)
+            DECLARE @RandomConcl INT = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomConcl < 70
+                SET @Conclusiones = 'Apto para el puesto de ' + @NombrePerfil;
+            ELSE
+                SET @Conclusiones = NULL;
+        END
+        ELSE IF @RandomResultado < 95
+        BEGIN
+            -- 15%: aptoConRestricciones
+            SET @TipoResultado = 'aptoConRestricciones';
+
+            -- Restricciones OBLIGATORIO
+            DECLARE @RandomRest INT = ABS(CHECKSUM(NEWID())) % 4;
+            IF @RandomRest = 0
+                SET @Restricciones = 'No cargar peso mayor a 20kg';
+            ELSE IF @RandomRest = 1
+                SET @Restricciones = 'No trabajar en alturas';
+            ELSE IF @RandomRest = 2
+                SET @Restricciones = 'Uso obligatorio de lentes correctivos';
+            ELSE
+                SET @Restricciones = 'Evitar exposición prolongada a ruidos fuertes';
+
+            -- Observaciones (60%)
+            SET @RandomObs = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomObs < 60
+                SET @Observaciones = 'Presenta restricciones para ciertas actividades';
+            ELSE
+                SET @Observaciones = NULL;
+
+            -- Conclusiones (70%)
+            SET @RandomConcl = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomConcl < 70
+                SET @Conclusiones = 'Apto con restricciones para el puesto de ' + @NombrePerfil;
+            ELSE
+                SET @Conclusiones = NULL;
+        END
+        ELSE IF @RandomResultado < 99
+        BEGIN
+            -- 4%: noApto
+            SET @TipoResultado = 'noApto';
+
+            -- Restricciones OBLIGATORIO
+            SET @Restricciones = 'No apto para el puesto evaluado';
+
+            -- Observaciones (60%)
+            SET @RandomObs = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomObs < 60
+                SET @Observaciones = 'Requiere evaluación adicional';
+            ELSE
+                SET @Observaciones = NULL;
+
+            -- Conclusiones (70%)
+            SET @RandomConcl = ABS(CHECKSUM(NEWID())) % 100;
+            IF @RandomConcl < 70
+                SET @Conclusiones = 'No apto para el puesto de ' + @NombrePerfil;
+            ELSE
+                SET @Conclusiones = NULL;
+        END
+        ELSE
+        BEGIN
+            -- 1%: noAplica
+            SET @TipoResultado = 'noAplica';
+            SET @Restricciones = NULL;
+            SET @Observaciones = NULL;
+            SET @Conclusiones = NULL;
+        END
+    END
+    ELSE
+    BEGIN
+        -- Tipo 1A: Datos mínimos - Todo NULL
+        SET @TipoResultado = NULL;
+        SET @Observaciones = NULL;
+        SET @Conclusiones = NULL;
         SET @Restricciones = NULL;
-
-        -- Variedad en observaciones
-        DECLARE @RandomObs INT = ABS(CHECKSUM(NEWID())) % 3;
-        IF @RandomObs = 0
-            SET @Observaciones = 'Sin observaciones';
-        ELSE IF @RandomObs = 1
-            SET @Observaciones = 'Evaluación satisfactoria';
-        ELSE
-            SET @Observaciones = 'Mantener hábitos saludables';
-
-        SET @Conclusiones = 'Apto para el puesto de ' + @NombrePerfil;
-    END
-    ELSE IF @RandomResultado < 95
-    BEGIN
-        -- 15%: APTO CON RESTRICCIONES
-        SET @TipoResultado = 'APTO CON RESTRICCIONES';
-
-        -- Restricciones variables
-        DECLARE @RandomRest INT = ABS(CHECKSUM(NEWID())) % 4;
-        IF @RandomRest = 0
-            SET @Restricciones = 'No cargar peso mayor a 20kg';
-        ELSE IF @RandomRest = 1
-            SET @Restricciones = 'No trabajar en alturas';
-        ELSE IF @RandomRest = 2
-            SET @Restricciones = 'Uso obligatorio de lentes correctivos';
-        ELSE
-            SET @Restricciones = 'Evitar exposición prolongada a ruidos fuertes';
-
-        SET @Observaciones = 'Presenta restricciones para ciertas actividades';
-        SET @Conclusiones = 'Apto con restricciones para el puesto de ' + @NombrePerfil;
-    END
-    ELSE
-    BEGIN
-        -- 5%: NO APTO
-        SET @TipoResultado = 'NO APTO';
-        SET @Restricciones = 'No apto para el puesto evaluado';
-        SET @Observaciones = 'Requiere evaluación adicional';
-        SET @Conclusiones = 'No apto para el puesto de ' + @NombrePerfil;
     END
 
     -- =============================================
-    -- GENERAR FECHAS (SIEMPRE 2 AÑOS DE DIFERENCIA)
+    -- GENERAR FECHAS (Solo si DatosCompletos = 1)
     -- =============================================
-    -- La vigencia SIEMPRE es de 2 años
-    SET @AniosVigencia = 2;
-
-    IF @TendraPDF = 1
+    IF @DatosCompletos = 1
     BEGIN
-        -- Con PDF: Distribuir entre Vigente/Por vencer/Vencido
-        DECLARE @RandomEstado INT = ABS(CHECKSUM(NEWID())) % 100;
+        -- La vigencia SIEMPRE es de 2 años
+        SET @AniosVigencia = 2;
 
-        IF @RandomEstado < 20
+        IF @TipoCertificado = 2
         BEGIN
-            -- 20%: VENCIDO
-            -- Para que esté vencido: FechaEvaluacion + 730 días < HOY
-            -- Entonces: FechaEvaluacion < HOY - 730 días
-            -- DiasAtras > 730
-            SET @DiasAtras = 731 + (ABS(CHECKSUM(NEWID())) % 365);  -- 731-1095 días atrás (vencido hace 1 día hasta 1 año)
-        END
-        ELSE IF @RandomEstado < 40
-        BEGIN
-            -- 20%: POR VENCER (le quedan 0-60 días para vencer)
-            -- Para que le queden 0-60 días: HOY < FechaEvaluacion + 730 < HOY + 60
-            -- Entonces: HOY - 730 < FechaEvaluacion < HOY - 670
-            -- DiasAtras entre 670-730
-            SET @DiasAtras = 670 + (ABS(CHECKSUM(NEWID())) % 61);  -- 670-730 días atrás (faltan 0-60 días)
+            -- TIPO 2 (Con PDF): Distribuir entre Vigente/Por vencer/Vencido
+            DECLARE @RandomEstado INT = ABS(CHECKSUM(NEWID())) % 100;
+
+            IF @RandomEstado < 20
+            BEGIN
+                -- 20%: VENCIDO
+                SET @DiasAtras = 731 + (ABS(CHECKSUM(NEWID())) % 365);  -- 731-1095 días atrás
+            END
+            ELSE IF @RandomEstado < 40
+            BEGIN
+                -- 20%: POR VENCER (0-60 días restantes)
+                SET @DiasAtras = 670 + (ABS(CHECKSUM(NEWID())) % 61);  -- 670-730 días atrás
+            END
+            ELSE
+            BEGIN
+                -- 60%: VIGENTE (>60 días restantes)
+                SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 670;  -- 0-669 días atrás
+            END
         END
         ELSE
         BEGIN
-            -- 60%: VIGENTE (le quedan más de 60 días)
-            -- Para que sea vigente: FechaEvaluacion + 730 > HOY + 60
-            -- Entonces: FechaEvaluacion > HOY - 670
-            -- DiasAtras < 670
-            SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 670;  -- 0-669 días atrás (más de 60 días restantes)
+            -- TIPO 1 (Sin PDF): Fechas recientes variadas
+            SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 365;  -- 0-365 días atrás
         END
+
+        SET @FechaEvaluacion = DATEADD(DAY, -@DiasAtras, GETDATE());
+        SET @FechaCaducidad = DATEADD(YEAR, @AniosVigencia, @FechaEvaluacion);
     END
     ELSE
     BEGIN
-        -- Sin PDF: Fechas variadas pero recientes
-        SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 365;  -- 0-365 días atrás (último año)
+        -- Tipo 1A: Sin fechas
+        SET @FechaEvaluacion = NULL;
+        SET @FechaCaducidad = NULL;
     END
-
-    SET @FechaEvaluacion = DATEADD(DAY, -@DiasAtras, GETDATE());
-    SET @FechaCaducidad = DATEADD(YEAR, @AniosVigencia, @FechaEvaluacion);
 
     -- =============================================
     -- ETAPA 1: INSERTAR DATOS BÁSICOS DEL CERTIFICADO
@@ -262,9 +416,9 @@ BEGIN
         @p_DoctorId = @DoctorId,
         @p_Codigo = @CodigoCertificado,
         @p_Password = @Password,
-        @p_PuestoAlQuePostula = @NombrePerfil,
-        @p_PuestoActual = NULL,
-        @p_TipoEvaluacion = @TipoEMO,
+        @p_PuestoAlQuePostula = @PuestoAlQuePostula,
+        @p_PuestoActual = @PuestoActual,
+        @p_TipoEvaluacion = @TipoEvaluacion,
         @p_TipoResultado = @TipoResultado,
         @p_Observaciones = @Observaciones,
         @p_Conclusiones = @Conclusiones,
@@ -275,82 +429,115 @@ BEGIN
     SET @ContadorCertificados = @ContadorCertificados + 1;
 
     -- =============================================
-    -- ETAPA 2: MARCAR EXÁMENES SEGÚN TIPO
+    -- ETAPA 2: MARCAR EXÁMENES SEGÚN TIPO/SUBTIPO
     -- =============================================
-    -- Obtener exámenes requeridos para este perfil
-    DECLARE @ExamenesRequeridos TABLE (
-        ProtocoloEMOId INT,
-        RowNum INT
-    );
-
-    INSERT INTO @ExamenesRequeridos (ProtocoloEMOId, RowNum)
-    SELECT
-        PRO.Id,
-        ROW_NUMBER() OVER (ORDER BY PRO.Id)
-    FROM T_PROTOCOLO_EMO PRO
-    WHERE PRO.PerfilTipoEMOId = @PerfilTipoEMOId
-      AND PRO.EsRequerido = 1
-      AND PRO.Estado = '1';
-
-    DECLARE @TotalExamenes INT = (SELECT COUNT(*) FROM @ExamenesRequeridos);
     DECLARE @ExamenesAMarcar INT = 0;
-    DECLARE @ExamenesParciales BIT = 0;
 
-    -- Determinar cuántos exámenes marcar según tipo
-    IF @TendraPDF = 1
+    -- Determinar cuántos exámenes marcar
+    IF @SubTipo1 = 1
     BEGIN
-        -- Tipo 2 (Con PDF): TODOS los exámenes OBLIGATORIO
-        SET @ExamenesAMarcar = @TotalExamenes;
-        SET @ExamenesParciales = 0;
+        -- Tipo 1A: Sin exámenes
+        SET @ExamenesAMarcar = 0;
     END
-    ELSE
+    ELSE IF @SubTipo1 = 2
     BEGIN
-        -- Tipo 1 (Sin PDF): Aleatorio entre parciales o completos
-        DECLARE @RandomExamenes INT = ABS(CHECKSUM(NEWID())) % 100;
+        -- Tipo 1B: Completo sin exámenes
+        SET @ExamenesAMarcar = 0;
+    END
+    ELSE IF @SubTipo1 = 3 OR @TipoCertificado = 2
+    BEGIN
+        -- Tipo 1C o Tipo 2: Necesitamos obtener los exámenes
+        DECLARE @ExamenesRequeridos TABLE (
+            ProtocoloEMOId INT,
+            RowNum INT
+        );
 
-        IF @RandomExamenes < 50
+        INSERT INTO @ExamenesRequeridos (ProtocoloEMOId, RowNum)
+        SELECT
+            PRO.Id,
+            ROW_NUMBER() OVER (ORDER BY PRO.Id)
+        FROM T_PROTOCOLO_EMO PRO
+        WHERE PRO.PerfilTipoEMOId = @PerfilTipoEMOId
+          AND PRO.EsRequerido = 1
+          AND PRO.Estado = '1';
+
+        DECLARE @TotalExamenes INT = (SELECT COUNT(*) FROM @ExamenesRequeridos);
+
+        IF @SubTipo1 = 3
         BEGIN
-            -- 50%: Exámenes PARCIALES (30-70% aleatorio)
-            DECLARE @PorcentajeExamenes INT = 30 + (ABS(CHECKSUM(NEWID())) % 41);  -- 30-70%
+            -- Tipo 1C: Exámenes PARCIALES (30-70%)
+            DECLARE @PorcentajeExamenes INT = 30 + (ABS(CHECKSUM(NEWID())) % 41);
             SET @ExamenesAMarcar = (@TotalExamenes * @PorcentajeExamenes) / 100;
             IF @ExamenesAMarcar = 0 SET @ExamenesAMarcar = 1;  -- Al menos 1
-            SET @ExamenesParciales = 1;
-            SET @ContadorExamenesParciales = @ContadorExamenesParciales + 1;
         END
         ELSE
         BEGIN
-            -- 50%: TODOS los exámenes
+            -- Tipo 2: TODOS los exámenes OBLIGATORIO
             SET @ExamenesAMarcar = @TotalExamenes;
-            SET @ExamenesParciales = 0;
-            SET @ContadorExamenesCompletos = @ContadorExamenesCompletos + 1;
         END
+
+        -- Marcar exámenes
+        DECLARE @ProtocoloEMOId INT;
+        DECLARE @ExamenRowNum INT = 1;
+
+        WHILE @ExamenRowNum <= @ExamenesAMarcar
+        BEGIN
+            SELECT @ProtocoloEMOId = ProtocoloEMOId
+            FROM @ExamenesRequeridos
+            WHERE RowNum = @ExamenRowNum;
+
+            EXEC S_INS_UPD_RESULTADO_EXAMEN
+                @p_PersonaProgramaId = @PersonaProgramaId,
+                @p_ProtocoloEMOId = @ProtocoloEMOId,
+                @p_Realizado = 1;
+
+            SET @ExamenRowNum = @ExamenRowNum + 1;
+        END
+
+        DELETE FROM @ExamenesRequeridos;
     END
-
-    -- Marcar exámenes
-    DECLARE @ProtocoloEMOId INT;
-    DECLARE @ExamenRowNum INT = 1;
-
-    WHILE @ExamenRowNum <= @ExamenesAMarcar
+    ELSE IF @SubTipo1 = 4
     BEGIN
-        SELECT @ProtocoloEMOId = ProtocoloEMOId
-        FROM @ExamenesRequeridos
-        WHERE RowNum = @ExamenRowNum;
+        -- Tipo 1D: TODOS los exámenes
+        DECLARE @ExamenesRequeridos1D TABLE (
+            ProtocoloEMOId INT,
+            RowNum INT
+        );
 
-        -- Marcar examen como realizado
-        EXEC S_INS_UPD_RESULTADO_EXAMEN
-            @p_PersonaProgramaId = @PersonaProgramaId,
-            @p_ProtocoloEMOId = @ProtocoloEMOId,
-            @p_Realizado = 1;
+        INSERT INTO @ExamenesRequeridos1D (ProtocoloEMOId, RowNum)
+        SELECT
+            PRO.Id,
+            ROW_NUMBER() OVER (ORDER BY PRO.Id)
+        FROM T_PROTOCOLO_EMO PRO
+        WHERE PRO.PerfilTipoEMOId = @PerfilTipoEMOId
+          AND PRO.EsRequerido = 1
+          AND PRO.Estado = '1';
 
-        SET @ExamenRowNum = @ExamenRowNum + 1;
+        DECLARE @ProtocoloEMOId1D INT;
+        DECLARE @ExamenRowNum1D INT = 1;
+        DECLARE @TotalExamenes1D INT = (SELECT COUNT(*) FROM @ExamenesRequeridos1D);
+
+        WHILE @ExamenRowNum1D <= @TotalExamenes1D
+        BEGIN
+            SELECT @ProtocoloEMOId1D = ProtocoloEMOId
+            FROM @ExamenesRequeridos1D
+            WHERE RowNum = @ExamenRowNum1D;
+
+            EXEC S_INS_UPD_RESULTADO_EXAMEN
+                @p_PersonaProgramaId = @PersonaProgramaId,
+                @p_ProtocoloEMOId = @ProtocoloEMOId1D,
+                @p_Realizado = 1;
+
+            SET @ExamenRowNum1D = @ExamenRowNum1D + 1;
+        END
+
+        DELETE FROM @ExamenesRequeridos1D;
     END
-
-    DELETE FROM @ExamenesRequeridos;
 
     -- =============================================
     -- ETAPA 3: GENERAR PDF (Solo Tipo 2)
     -- =============================================
-    IF @TendraPDF = 1
+    IF @TipoCertificado = 2
     BEGIN
         -- =============================================
         -- VALIDACIONES OBLIGATORIAS ANTES DE GENERAR PDF
@@ -425,11 +612,6 @@ BEGIN
             PRINT 'ADVERTENCIA: ' + @MensajeValidacion;
         END
     END
-    ELSE
-    BEGIN
-        -- Incrementar contador de sin PDF
-        SET @ContadorSinPDF = @ContadorSinPDF + 1;
-    END
 
     -- Progreso cada 20 certificados
     IF @ContadorCertificados % 20 = 0
@@ -453,20 +635,34 @@ PRINT '';
 -- =============================================
 -- ESTADÍSTICAS FINALES
 -- =============================================
-PRINT '--- DISTRIBUCIÓN POR TIPO DE CERTIFICADO ---';
-PRINT 'Sin PDF: ' + CAST(@ContadorSinPDF AS VARCHAR) + ' (' +
-      CAST(CAST(@ContadorSinPDF * 100.0 / @ContadorCertificados AS DECIMAL(5,2)) AS VARCHAR) + '%)';
-PRINT '  - Exámenes parciales: ' + CAST(@ContadorExamenesParciales AS VARCHAR);
-PRINT '  - Exámenes completos: ' + CAST(@ContadorExamenesCompletos AS VARCHAR);
+PRINT '--- DISTRIBUCIÓN GENERAL ---';
+PRINT 'Total colaboradores procesados: ' + CAST(@TotalColaboradores AS VARCHAR);
+PRINT 'Sin certificado (Tipo 0): ' + CAST(@ContadorSinCertificado AS VARCHAR) + ' (' +
+      CAST(CAST(@ContadorSinCertificado * 100.0 / @TotalColaboradores AS DECIMAL(5,2)) AS VARCHAR) + '%)';
 PRINT '';
-PRINT 'Con PDF: ' + CAST(@ContadorConPDF AS VARCHAR) + ' (' +
-      CAST(CAST(@ContadorConPDF * 100.0 / @ContadorCertificados AS DECIMAL(5,2)) AS VARCHAR) + '%)';
-PRINT '  - Vigente (>2 meses): ' + CAST(@ContadorVigente AS VARCHAR) + ' (' +
-      CAST(CAST(@ContadorVigente * 100.0 / NULLIF(@ContadorConPDF, 0) AS DECIMAL(5,2)) AS VARCHAR) + '%)';
-PRINT '  - Por vencer (0-2 meses): ' + CAST(@ContadorPorVencer AS VARCHAR) + ' (' +
-      CAST(CAST(@ContadorPorVencer * 100.0 / NULLIF(@ContadorConPDF, 0) AS DECIMAL(5,2)) AS VARCHAR) + '%)';
-PRINT '  - Vencido: ' + CAST(@ContadorVencido AS VARCHAR) + ' (' +
-      CAST(CAST(@ContadorVencido * 100.0 / NULLIF(@ContadorConPDF, 0) AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+
+PRINT '--- CERTIFICADOS SIN PDF (Tipo 1) ---';
+DECLARE @TotalSinPDF INT = @ContadorDatosMinimos + @ContadorSinExamenes + @ContadorParcial + @ContadorCompletoSinPDF;
+PRINT 'Total sin PDF: ' + CAST(@TotalSinPDF AS VARCHAR) + ' (' +
+      CAST(CAST(@TotalSinPDF * 100.0 / @TotalColaboradores AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+PRINT '  - 1A (Datos mínimos): ' + CAST(@ContadorDatosMinimos AS VARCHAR);
+PRINT '  - 1B (Completo sin exámenes): ' + CAST(@ContadorSinExamenes AS VARCHAR);
+PRINT '  - 1C (Completo + parcial): ' + CAST(@ContadorParcial AS VARCHAR);
+PRINT '  - 1D (Completo + todos, sin PDF): ' + CAST(@ContadorCompletoSinPDF AS VARCHAR);
+PRINT '';
+
+PRINT '--- CERTIFICADOS CON PDF (Tipo 2) ---';
+PRINT 'Total con PDF: ' + CAST(@ContadorConPDF AS VARCHAR) + ' (' +
+      CAST(CAST(@ContadorConPDF * 100.0 / @TotalColaboradores AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+IF @ContadorConPDF > 0
+BEGIN
+    PRINT '  - Vigente (>60 días): ' + CAST(@ContadorVigente AS VARCHAR) + ' (' +
+          CAST(CAST(@ContadorVigente * 100.0 / @ContadorConPDF AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+    PRINT '  - Por vencer (0-60 días): ' + CAST(@ContadorPorVencer AS VARCHAR) + ' (' +
+          CAST(CAST(@ContadorPorVencer * 100.0 / @ContadorConPDF AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+    PRINT '  - Vencido: ' + CAST(@ContadorVencido AS VARCHAR) + ' (' +
+          CAST(CAST(@ContadorVencido * 100.0 / @ContadorConPDF AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+END
 PRINT '';
 
 PRINT '--- DISTRIBUCIÓN POR ESTADO DE CERTIFICADO ---';
