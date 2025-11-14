@@ -84,19 +84,11 @@ PRINT '════════════════════════�
 PRINT '  PASO 2: CREANDO ENTIDADES';
 PRINT '═══════════════════════════════════════════════════════════';
 
-DECLARE @EntidadId1 INT, @EntidadId2 INT, @EntidadId3 INT;
+DECLARE @EntidadBancoId INT;
 
-EXEC S_INS_UDP_ENTIDAD NULL, 'Banco de la Nación - Sede Principal';
-SELECT TOP 1 @EntidadId1 = Id FROM T_ENTIDAD WHERE Nombre LIKE '%Sede Principal%' AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Entidad 1 creada - ID: ' + CAST(@EntidadId1 AS VARCHAR) + ' (Sede Principal)';
-
-EXEC S_INS_UDP_ENTIDAD NULL, 'Banco de la Nación - Región Lima';
-SELECT TOP 1 @EntidadId2 = Id FROM T_ENTIDAD WHERE Nombre LIKE '%Región Lima%' AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Entidad 2 creada - ID: ' + CAST(@EntidadId2 AS VARCHAR) + ' (Región Lima)';
-
-EXEC S_INS_UDP_ENTIDAD NULL, 'Banco de la Nación - Región Norte';
-SELECT TOP 1 @EntidadId3 = Id FROM T_ENTIDAD WHERE Nombre LIKE '%Región Norte%' AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Entidad 3 creada - ID: ' + CAST(@EntidadId3 AS VARCHAR) + ' (Región Norte)';
+EXEC S_INS_UDP_ENTIDAD NULL, 'Banco de la Nación';
+SELECT TOP 1 @EntidadBancoId = Id FROM T_ENTIDAD WHERE Nombre = 'Banco de la Nación' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Entidad creada - ID: ' + CAST(@EntidadBancoId AS VARCHAR) + ' (Banco de la Nación)';
 PRINT '';
 
 -- ============================================
@@ -108,17 +100,17 @@ PRINT '════════════════════════�
 
 DECLARE @ProgramaId1 INT, @ProgramaId2 INT, @ProgramaId3 INT;
 
-EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Programa EMO - Personal Operativo', @EntidadId1;
-SELECT TOP 1 @ProgramaId1 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadId1 AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Programa 1 creado - ID: ' + CAST(@ProgramaId1 AS VARCHAR) + ' (Personal Operativo - 4 perfiles)';
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Operativo - 2023', @EntidadBancoId;
+SELECT TOP 1 @ProgramaId1 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadBancoId AND Nombre LIKE '%Operativo%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa 1 creado - ID: ' + CAST(@ProgramaId1 AS VARCHAR) + ' (Personal Operativo - 2023)';
 
-EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Programa EMO - Personal Comercial y Soporte', @EntidadId2;
-SELECT TOP 1 @ProgramaId2 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadId2 AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Programa 2 creado - ID: ' + CAST(@ProgramaId2 AS VARCHAR) + ' (Personal Comercial - 6 perfiles)';
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Comercial y Soporte - 2024', @EntidadBancoId;
+SELECT TOP 1 @ProgramaId2 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadBancoId AND Nombre LIKE '%Comercial%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa 2 creado - ID: ' + CAST(@ProgramaId2 AS VARCHAR) + ' (Personal Comercial y Soporte - 2024)';
 
-EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Programa EMO - Personal Administrativo y Gerencial', @EntidadId3;
-SELECT TOP 1 @ProgramaId3 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadId3 AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Programa 3 creado - ID: ' + CAST(@ProgramaId3 AS VARCHAR) + ' (Personal Administrativo - 8 perfiles)';
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Administrativo y Gerencial - 2025', @EntidadBancoId;
+SELECT TOP 1 @ProgramaId3 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadBancoId AND Nombre LIKE '%Administrativo%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa 3 creado - ID: ' + CAST(@ProgramaId3 AS VARCHAR) + ' (Personal Administrativo y Gerencial - 2025)';
 PRINT '';
 
 -- ============================================
@@ -1069,3 +1061,513 @@ PRINT '';
 PRINT '╔════════════════════════════════════════════════════════════╗';
 PRINT '║           CONSULTAS DE MEMORIA COMPLETADAS                ║';
 PRINT '╚════════════════════════════════════════════════════════════╝';
+
+-- ============================================
+-- ENTIDAD 2: EMPRESA DE DESARROLLO DE SOFTWARE
+-- TechSolutions S.A.C.
+-- ============================================
+
+USE DB_MEDIVALLE;
+GO
+
+SET NOCOUNT ON;
+
+PRINT '';
+PRINT '╔════════════════════════════════════════════════════════════╗';
+PRINT '║   CONFIGURACIÓN - EMPRESA DE DESARROLLO DE SOFTWARE       ║';
+PRINT '║                TechSolutions S.A.C.                       ║';
+PRINT '╚════════════════════════════════════════════════════════════╝';
+PRINT '';
+
+-- CREAR ENTIDAD: Empresa de Desarrollo de Software
+PRINT '═══════════════════════════════════════════════════════════';
+PRINT '  CREANDO ENTIDAD: TechSolutions S.A.C.';
+PRINT '═══════════════════════════════════════════════════════════';
+
+DECLARE @EntidadSoftwareId INT;
+
+EXEC S_INS_UDP_ENTIDAD NULL, 'TechSolutions S.A.C. - Empresa de Desarrollo de Software';
+SELECT TOP 1 @EntidadSoftwareId = Id FROM T_ENTIDAD WHERE Nombre LIKE '%TechSolutions%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Entidad creada - ID: ' + CAST(@EntidadSoftwareId AS VARCHAR);
+PRINT '';
+
+-- ═══════════════════════════════════════════════════════════
+-- PROGRAMA 1: PERSONAL TÉCNICO (Desarrolladores, QA, DevOps)
+-- ═══════════════════════════════════════════════════════════
+PRINT '┌─────────────────────────────────────────────────────────┐';
+PRINT '│ PROGRAMA 1: PERSONAL TÉCNICO                           │';
+PRINT '└─────────────────────────────────────────────────────────┘';
+
+DECLARE @ProgSoftware1Id INT, @PerfilId INT, @ExamenId INT;
+
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Técnico de Software - 2023', @EntidadSoftwareId;
+SELECT TOP 1 @ProgSoftware1Id = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadSoftwareId AND Nombre LIKE '%Técnico%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa creado - ID: ' + CAST(@ProgSoftware1Id AS VARCHAR) + ' (Personal Técnico - 2023)';
+
+-- PERFIL 1: Desarrollador de Software
+PRINT '  → Configurando: Desarrollador de Software';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Desarrollador de Software', @ProgSoftware1Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Desarrollador de Software' AND ProgramaEMOId = @ProgSoftware1Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Hemograma Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Oftalmológico Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Columna Cervical';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Columna Lumbosacra';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Psicológica Ocupacional';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Estrés Laboral';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Desarrollador de Software configurado (4 tipos EMO)';
+
+-- PERFIL 2: Analista QA
+PRINT '  → Configurando: Analista QA';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Analista QA', @ProgSoftware1Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Analista QA' AND ProgramaEMOId = @ProgSoftware1Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Psicológica Ocupacional';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Atención y Concentración';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Estrés Laboral';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Analista QA configurado (4 tipos EMO)';
+
+PRINT '  ✓ Programa 1 completado';
+PRINT '';
+
+-- ═══════════════════════════════════════════════════════════
+-- PROGRAMA 2: PERSONAL ADMINISTRATIVO Y SOPORTE
+-- ═══════════════════════════════════════════════════════════
+PRINT '┌─────────────────────────────────────────────────────────┐';
+PRINT '│ PROGRAMA 2: PERSONAL ADMINISTRATIVO Y SOPORTE          │';
+PRINT '└─────────────────────────────────────────────────────────┘';
+
+DECLARE @ProgSoftware2Id INT;
+
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Administrativo y Soporte - 2023', @EntidadSoftwareId;
+SELECT TOP 1 @ProgSoftware2Id = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadSoftwareId AND Nombre LIKE '%Administrativo%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa creado - ID: ' + CAST(@ProgSoftware2Id AS VARCHAR) + ' (Personal Administrativo - 2023)';
+
+-- PERFIL 1: Gerente de Proyectos
+PRINT '  → Configurando: Gerente de Proyectos';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Gerente de Proyectos', @ProgSoftware2Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Gerente de Proyectos' AND ProgramaEMOId = @ProgSoftware2Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Hemograma Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Electrocardiograma en Reposo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Psicológica Ocupacional';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Estrés Laboral';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Gerente de Proyectos configurado (4 tipos EMO)';
+
+-- PERFIL 2: Asistente Administrativo
+PRINT '  → Configurando: Asistente Administrativo';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Asistente Administrativo', @ProgSoftware2Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Asistente Administrativo' AND ProgramaEMOId = @ProgSoftware2Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Asistente Administrativo configurado (4 tipos EMO)';
+
+PRINT '  ✓ Programa 2 completado';
+PRINT '';
+
+PRINT '╔════════════════════════════════════════════════════════════╗';
+PRINT '║    ✓ CONFIGURACIÓN TECHSOLUTIONS S.A.C. COMPLETADA       ║';
+PRINT '╚════════════════════════════════════════════════════════════╝';
+
+SET NOCOUNT OFF;
+GO
+
+-- ============================================
+-- ENTIDAD 3: COLEGIO (INSTITUCIÓN EDUCATIVA)
+-- I.E. San Martín de Porres
+-- ============================================
+
+USE DB_MEDIVALLE;
+GO
+
+SET NOCOUNT ON;
+
+PRINT '';
+PRINT '╔════════════════════════════════════════════════════════════╗';
+PRINT '║        CONFIGURACIÓN - INSTITUCIÓN EDUCATIVA               ║';
+PRINT '║          I.E. San Martín de Porres                        ║';
+PRINT '╚════════════════════════════════════════════════════════════╝';
+PRINT '';
+
+-- CREAR ENTIDAD: Colegio
+PRINT '═══════════════════════════════════════════════════════════';
+PRINT '  CREANDO ENTIDAD: I.E. San Martín de Porres';
+PRINT '═══════════════════════════════════════════════════════════';
+
+DECLARE @EntidadColegioId INT;
+
+EXEC S_INS_UDP_ENTIDAD NULL, 'I.E. San Martín de Porres - Institución Educativa';
+SELECT TOP 1 @EntidadColegioId = Id FROM T_ENTIDAD WHERE Nombre LIKE '%San Martín%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Entidad creada - ID: ' + CAST(@EntidadColegioId AS VARCHAR);
+PRINT '';
+
+-- ═══════════════════════════════════════════════════════════
+-- PROGRAMA 1: PERSONAL DOCENTE
+-- ═══════════════════════════════════════════════════════════
+PRINT '┌─────────────────────────────────────────────────────────┐';
+PRINT '│ PROGRAMA 1: PERSONAL DOCENTE                           │';
+PRINT '└─────────────────────────────────────────────────────────┘';
+
+DECLARE @ProgColegio1Id INT, @PerfilId INT, @ExamenId INT;
+
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Docente - 2023', @EntidadColegioId;
+SELECT TOP 1 @ProgColegio1Id = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadColegioId AND Nombre LIKE '%Docente%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa creado - ID: ' + CAST(@ProgColegio1Id AS VARCHAR) + ' (Personal Docente - 2023)';
+
+-- PERFIL 1: Profesor de Aula
+PRINT '  → Configurando: Profesor de Aula';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Profesor de Aula', @ProgColegio1Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Profesor de Aula' AND ProgramaEMOId = @ProgColegio1Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Hemograma Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Tórax PA';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Audiometría';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Psicológica Ocupacional';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Audiometría';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Estrés Laboral';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Psicológica Ocupacional';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Profesor de Aula configurado (4 tipos EMO)';
+
+-- PERFIL 2: Profesor de Educación Física
+PRINT '  → Configurando: Profesor de Educación Física';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Profesor de Educación Física', @ProgColegio1Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Profesor de Educación Física' AND ProgramaEMOId = @ProgColegio1Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Hemograma Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Tórax PA';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Electrocardiograma en Reposo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Columna Lumbosacra';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Movilidad Articular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Electrocardiograma en Reposo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Profesor de Educación Física configurado (4 tipos EMO)';
+
+PRINT '  ✓ Programa 1 completado';
+PRINT '';
+
+-- ═══════════════════════════════════════════════════════════
+-- PROGRAMA 2: PERSONAL ADMINISTRATIVO Y DE SERVICIOS
+-- ═══════════════════════════════════════════════════════════
+PRINT '┌─────────────────────────────────────────────────────────┐';
+PRINT '│ PROGRAMA 2: PERSONAL ADMINISTRATIVO Y SERVICIOS        │';
+PRINT '└─────────────────────────────────────────────────────────┘';
+
+DECLARE @ProgColegio2Id INT;
+
+EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Administrativo y Servicios - 2024', @EntidadColegioId;
+SELECT TOP 1 @ProgColegio2Id = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadColegioId AND Nombre LIKE '%Administrativo%' AND Estado = '1' ORDER BY Id DESC;
+PRINT '✓ Programa creado - ID: ' + CAST(@ProgColegio2Id AS VARCHAR) + ' (Personal Administrativo - 2024)';
+
+-- PERFIL 1: Secretario/a Académico
+PRINT '  → Configurando: Secretario/a Académico';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Secretario/a Académico', @ProgColegio2Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Secretario/a Académico' AND ProgramaEMOId = @ProgColegio2Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Hemograma Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Columna Cervical';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Test de Agudeza Visual';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Secretario/a Académico configurado (4 tipos EMO)';
+
+-- PERFIL 2: Personal de Mantenimiento
+PRINT '  → Configurando: Personal de Mantenimiento';
+EXEC S_INS_UPD_PERFIL_OCUPACIONAL NULL, 'Personal de Mantenimiento', @ProgColegio2Id;
+SELECT TOP 1 @PerfilId = Id FROM T_PERFIL_OCUPACIONAL WHERE Nombre = 'Personal de Mantenimiento' AND ProgramaEMOId = @ProgColegio2Id ORDER BY Id DESC;
+
+-- INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Hemograma Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Tórax PA';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Radiografía de Columna Lumbosacra';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Audiometría';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'INGRESO', @ExamenId, 1;
+
+-- RE-INGRESO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RE-INGRESO', @ExamenId, 1;
+
+-- PERIÓDICO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Evaluación Osteomuscular';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Audiometría';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
+
+-- RETIRO
+SELECT @ExamenId = Id FROM T_EXAMEN_MEDICO_OCUPACIONAL WHERE Nombre = 'Examen Médico Ocupacional Completo';
+EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'RETIRO', @ExamenId, 1;
+
+PRINT '    ✓ Personal de Mantenimiento configurado (4 tipos EMO)';
+
+PRINT '  ✓ Programa 2 completado';
+PRINT '';
+
+PRINT '╔════════════════════════════════════════════════════════════╗';
+PRINT '║   ✓ CONFIGURACIÓN I.E. SAN MARTÍN DE PORRES COMPLETADA   ║';
+PRINT '╚════════════════════════════════════════════════════════════╝';
+
+SET NOCOUNT OFF;
+GO
+
+-- ============================================
+-- RESUMEN FINAL DE TODAS LAS CONFIGURACIONES
+-- ============================================
+
+USE DB_MEDIVALLE;
+GO
+
+PRINT '';
+PRINT '╔════════════════════════════════════════════════════════════╗';
+PRINT '║              RESUMEN FINAL DEL SISTEMA                    ║';
+PRINT '╚════════════════════════════════════════════════════════════╝';
+PRINT '';
+
+PRINT '┌────────────────────────────────────────────────────────────┐';
+PRINT '│ ENTIDADES CONFIGURADAS:                                    │';
+PRINT '└────────────────────────────────────────────────────────────┘';
+
+SELECT
+    Id AS EntidadId,
+    Nombre AS EntidadNombre,
+    (SELECT COUNT(*) FROM T_PROGRAMA_EMO WHERE EntidadId = E.Id AND Estado = '1') AS CantidadProgramas
+FROM T_ENTIDAD E
+WHERE Estado = '1'
+ORDER BY Id;
+
+PRINT '';
+PRINT '┌────────────────────────────────────────────────────────────┐';
+PRINT '│ TOTAL DE CONFIGURACIONES:                                  │';
+PRINT '└────────────────────────────────────────────────────────────┘';
+
+SELECT
+    'Entidades Configuradas' AS Concepto,
+    COUNT(*) AS Total
+FROM T_ENTIDAD
+WHERE Estado = '1'
+
+UNION ALL
+
+SELECT
+    'Programas EMO Creados',
+    COUNT(*)
+FROM T_PROGRAMA_EMO
+WHERE Estado = '1'
+
+UNION ALL
+
+SELECT
+    'Perfiles Ocupacionales',
+    COUNT(*)
+FROM T_PERFIL_OCUPACIONAL
+WHERE Estado = '1'
+
+UNION ALL
+
+SELECT
+    'Protocolos Configurados',
+    COUNT(*)
+FROM T_PROTOCOLO_EMO
+WHERE Estado = '1';
+
+PRINT '';
+PRINT '╔════════════════════════════════════════════════════════════╗';
+PRINT '║     ✓✓✓ TODAS LAS CONFIGURACIONES COMPLETADAS ✓✓✓        ║';
+PRINT '║                                                            ║';
+PRINT '║  • Banco de la Nación:                                    ║';
+PRINT '║    - Personal Operativo - 2023                            ║';
+PRINT '║    - Personal Comercial y Soporte - 2024                  ║';
+PRINT '║    - Personal Administrativo y Gerencial - 2025           ║';
+PRINT '║                                                            ║';
+PRINT '║  • TechSolutions S.A.C.:                                  ║';
+PRINT '║    - Personal Técnico de Software - 2023                  ║';
+PRINT '║    - Personal Administrativo y Soporte - 2023             ║';
+PRINT '║                                                            ║';
+PRINT '║  • I.E. San Martín de Porres:                             ║';
+PRINT '║    - Personal Docente - 2023                              ║';
+PRINT '║    - Personal Administrativo y Servicios - 2024           ║';
+PRINT '║                                                            ║';
+PRINT '║  Total: 3 entidades, 7 programas EMO                      ║';
+PRINT '║  Tipos EMO: INGRESO, RE-INGRESO, PERIÓDICO, RETIRO        ║';
+PRINT '╚════════════════════════════════════════════════════════════╝';
+PRINT '';

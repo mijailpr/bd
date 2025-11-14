@@ -59,7 +59,7 @@ DECLARE @Doctores TABLE (
 INSERT INTO @Doctores (DoctorId, RowNum)
 SELECT Id, ROW_NUMBER() OVER (ORDER BY NEWID())
 FROM T_DOCTOR
-WHERE Estado = 'ACTIVO';
+WHERE Estado = '1';
 
 DECLARE @TotalDoctores INT = (SELECT COUNT(*) FROM @Doctores);
 
