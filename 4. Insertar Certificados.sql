@@ -1,9 +1,14 @@
 -- =============================================
 -- SCRIPT: insert-certificados.sql
--- Descripción: Genera certificados EMO para todos los colaboradores
---              con 3 etapas y variabilidad realista
+-- Descripción: Genera certificados EMO con variabilidad realista
+--              usando niveles aleatorios de completitud:
+--              - Nivel 1 (20%): Solo datos básicos
+--              - Nivel 2 (15%): Datos + exámenes parciales (30-70%)
+--              - Nivel 3 (25%): Datos + todos exámenes, sin PDF
+--              - Nivel 4 (40%): Todo completo + PDF con validaciones
 -- Autor: Sistema MediValle
 -- Fecha: 2025-01-14
+-- Actualización: 2025-01-14 - Sistema de niveles aleatorios
 -- =============================================
 
 USE DB_MEDIVALLE
@@ -22,30 +27,25 @@ DECLARE @ContadorCertificados INT = 0;
 DECLARE @CodigoSecuencial INT = 1;
 DECLARE @AnioActual INT = YEAR(GETDATE());
 
--- Variables para control de variabilidad
-DECLARE @TotalProcesados INT = 0;
-DECLARE @Limite20Pct INT;  -- Solo Etapa 1
-DECLARE @Limite35Pct INT;  -- Etapa 1 + exámenes parciales
-DECLARE @Limite60Pct INT;  -- Etapa 1 + todos exámenes, SIN PDF
--- El resto (40%): Etapa 1 + Etapa 2 + Etapa 3 COMPLETO
+-- Contadores para estadísticas
+DECLARE @ContadorNivel1 INT = 0;  -- Solo datos básicos
+DECLARE @ContadorNivel2 INT = 0;  -- Datos + exámenes parciales
+DECLARE @ContadorNivel3 INT = 0;  -- Datos + todos exámenes, sin PDF
+DECLARE @ContadorNivel4 INT = 0;  -- Todo completo con PDF
 
 -- Obtener total de colaboradores
 SELECT @TotalColaboradores = COUNT(*)
 FROM T_PERSONA_PROGRAMA
 WHERE Estado = '1';
 
--- Calcular límites de variabilidad
-SET @Limite20Pct = CAST(@TotalColaboradores * 0.20 AS INT);
-SET @Limite35Pct = @Limite20Pct + CAST(@TotalColaboradores * 0.15 AS INT);
-SET @Limite60Pct = @Limite35Pct + CAST(@TotalColaboradores * 0.25 AS INT);
-
 PRINT 'Total de colaboradores encontrados: ' + CAST(@TotalColaboradores AS VARCHAR);
 PRINT '';
-PRINT 'Distribución de variabilidad:';
-PRINT '  - Solo Etapa 1 (sin exámenes): ' + CAST(@Limite20Pct AS VARCHAR) + ' colaboradores (20%)';
-PRINT '  - Etapa 1 + exámenes parciales: ' + CAST(@Limite35Pct - @Limite20Pct AS VARCHAR) + ' colaboradores (15%)';
-PRINT '  - Etapa 1 + todos exámenes, SIN PDF: ' + CAST(@Limite60Pct - @Limite35Pct AS VARCHAR) + ' colaboradores (25%)';
-PRINT '  - COMPLETO con PDF: ' + CAST(@TotalColaboradores - @Limite60Pct AS VARCHAR) + ' colaboradores (40%)';
+PRINT 'Distribución objetivo de variabilidad:';
+PRINT '  - Nivel 1 (Solo datos básicos): 20%';
+PRINT '  - Nivel 2 (Datos + exámenes parciales): 15%';
+PRINT '  - Nivel 3 (Datos + todos exámenes, sin PDF): 25%';
+PRINT '  - Nivel 4 (Todo completo con PDF): 40%';
+PRINT '  * La distribución será aleatoria y aproximada';
 PRINT '';
 
 -- =============================================
@@ -106,8 +106,26 @@ FETCH NEXT FROM CursorColaboradores INTO @PersonaProgramaId, @PersonaId, @Nombre
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- Incrementar contador de procesados
-    SET @TotalProcesados = @TotalProcesados + 1;
+    -- =============================================
+    -- DETERMINAR NIVEL DE COMPLETITUD ALEATORIAMENTE
+    -- =============================================
+    DECLARE @NivelCompletitud INT;
+    DECLARE @RandomNivel INT = ABS(CHECKSUM(NEWID())) % 100;
+
+    IF @RandomNivel < 20
+        SET @NivelCompletitud = 1;  -- 20%: Solo datos básicos
+    ELSE IF @RandomNivel < 35
+        SET @NivelCompletitud = 2;  -- 15%: Datos + exámenes parciales
+    ELSE IF @RandomNivel < 60
+        SET @NivelCompletitud = 3;  -- 25%: Datos + todos exámenes, sin PDF
+    ELSE
+        SET @NivelCompletitud = 4;  -- 40%: Todo completo con PDF
+
+    -- Incrementar contador correspondiente
+    IF @NivelCompletitud = 1 SET @ContadorNivel1 = @ContadorNivel1 + 1;
+    ELSE IF @NivelCompletitud = 2 SET @ContadorNivel2 = @ContadorNivel2 + 1;
+    ELSE IF @NivelCompletitud = 3 SET @ContadorNivel3 = @ContadorNivel3 + 1;
+    ELSE IF @NivelCompletitud = 4 SET @ContadorNivel4 = @ContadorNivel4 + 1;
 
     -- =============================================
     -- VARIABLES PARA ESTE COLABORADOR
@@ -187,42 +205,37 @@ BEGIN
     END
 
     -- =============================================
-    -- GENERAR FECHAS SEGÚN VARIABILIDAD
+    -- GENERAR FECHAS SEGÚN NIVEL DE COMPLETITUD
     -- =============================================
-    -- Determinar si tendrá PDF (40% de los colaboradores)
-    DECLARE @TendraPDF BIT = 0;
-    IF @TotalProcesados > @Limite60Pct
-        SET @TendraPDF = 1;
-
-    IF @TendraPDF = 1
+    IF @NivelCompletitud = 4
     BEGIN
-        -- Para certificados con PDF: distribuir estados
+        -- Nivel 4: Certificados con PDF - distribuir estados (vigente/por vencer/vencido)
         DECLARE @RandomEstado INT = ABS(CHECKSUM(NEWID())) % 100;
 
         IF @RandomEstado < 15
         BEGIN
-            -- 15%: VENCIDO (fecha muy antigua)
+            -- 15%: VENCIDO
             SET @DiasAtras = 700 + (ABS(CHECKSUM(NEWID())) % 200);  -- 700-900 días atrás
-            SET @AniosVigencia = 2;  -- Vigencia de 2 años (ya vencido)
+            SET @AniosVigencia = 2;
         END
         ELSE IF @RandomEstado < 40
         BEGIN
             -- 25%: POR VENCER (<60 días)
-            SET @DiasAtras = 690 + (ABS(CHECKSUM(NEWID())) % 40);  -- 690-730 días atrás (cerca de 2 años)
+            SET @DiasAtras = 690 + (ABS(CHECKSUM(NEWID())) % 40);  -- 690-730 días atrás
             SET @AniosVigencia = 2;
         END
         ELSE
         BEGIN
-            -- 60%: VIGENTE (mucho tiempo restante)
+            -- 60%: VIGENTE
             SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 180;  -- 0-6 meses atrás
             SET @AniosVigencia = 2 + (ABS(CHECKSUM(NEWID())) % 2);  -- 2 o 3 años
         END
     END
     ELSE
     BEGIN
-        -- Para certificados sin PDF: fechas recientes
-        SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 90;  -- 0-3 meses atrás
-        SET @AniosVigencia = 2 + (ABS(CHECKSUM(NEWID())) % 2);
+        -- Niveles 1-3: Sin PDF - fechas recientes y variadas
+        SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 120;  -- 0-4 meses atrás
+        SET @AniosVigencia = 2 + (ABS(CHECKSUM(NEWID())) % 2);  -- 2 o 3 años
     END
 
     SET @FechaEvaluacion = DATEADD(DAY, -@DiasAtras, GETDATE());
@@ -250,10 +263,9 @@ BEGIN
     SET @ContadorCertificados = @ContadorCertificados + 1;
 
     -- =============================================
-    -- ETAPA 2: MARCAR EXÁMENES COMO REALIZADOS
+    -- ETAPA 2: MARCAR EXÁMENES SEGÚN NIVEL DE COMPLETITUD
     -- =============================================
-    -- Solo si el colaborador NO está en el primer 20% (solo Etapa 1)
-    IF @TotalProcesados > @Limite20Pct
+    IF @NivelCompletitud > 1  -- Niveles 2, 3 y 4 tienen exámenes
     BEGIN
         -- Obtener exámenes requeridos para este perfil
         DECLARE @ExamenesRequeridos TABLE (
@@ -273,22 +285,17 @@ BEGIN
         DECLARE @TotalExamenes INT = (SELECT COUNT(*) FROM @ExamenesRequeridos);
         DECLARE @ExamenesAMarcar INT = 0;
 
-        -- Determinar cuántos exámenes marcar según variabilidad
-        -- IMPORTANTE: Si tendrá PDF, SIEMPRE marcar TODOS los exámenes
-        IF @TendraPDF = 1
+        -- Determinar cuántos exámenes marcar según nivel
+        IF @NivelCompletitud = 2
         BEGIN
-            -- Si va a tener PDF, TODOS los exámenes son obligatorios
-            SET @ExamenesAMarcar = @TotalExamenes;
-        END
-        ELSE IF @TotalProcesados <= @Limite35Pct
-        BEGIN
-            -- 15%: Exámenes PARCIALES (50%)
-            SET @ExamenesAMarcar = @TotalExamenes / 2;
+            -- Nivel 2: Exámenes PARCIALES (30-70% aleatorio)
+            DECLARE @PorcentajeExamenes INT = 30 + (ABS(CHECKSUM(NEWID())) % 41);  -- 30-70%
+            SET @ExamenesAMarcar = (@TotalExamenes * @PorcentajeExamenes) / 100;
             IF @ExamenesAMarcar = 0 SET @ExamenesAMarcar = 1;  -- Al menos 1
         END
-        ELSE
+        ELSE IF @NivelCompletitud = 3 OR @NivelCompletitud = 4
         BEGIN
-            -- 25%: TODOS los exámenes pero sin PDF
+            -- Niveles 3 y 4: TODOS los exámenes
             SET @ExamenesAMarcar = @TotalExamenes;
         END
 
@@ -315,9 +322,9 @@ BEGIN
     END
 
     -- =============================================
-    -- ETAPA 3: GENERAR PDF (Solo para el 40%)
+    -- ETAPA 3: GENERAR PDF (Solo Nivel 4)
     -- =============================================
-    IF @TendraPDF = 1
+    IF @NivelCompletitud = 4
     BEGIN
         -- =============================================
         -- VALIDACIONES OBLIGATORIAS ANTES DE GENERAR PDF
@@ -402,6 +409,17 @@ PRINT '';
 -- =============================================
 -- ESTADÍSTICAS FINALES
 -- =============================================
+PRINT '--- DISTRIBUCIÓN POR NIVEL DE COMPLETITUD ---';
+PRINT 'Nivel 1 (Solo datos básicos): ' + CAST(@ContadorNivel1 AS VARCHAR) + ' (' +
+      CAST(CAST(@ContadorNivel1 * 100.0 / @ContadorCertificados AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+PRINT 'Nivel 2 (Datos + exámenes parciales): ' + CAST(@ContadorNivel2 AS VARCHAR) + ' (' +
+      CAST(CAST(@ContadorNivel2 * 100.0 / @ContadorCertificados AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+PRINT 'Nivel 3 (Datos + todos exámenes, sin PDF): ' + CAST(@ContadorNivel3 AS VARCHAR) + ' (' +
+      CAST(CAST(@ContadorNivel3 * 100.0 / @ContadorCertificados AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+PRINT 'Nivel 4 (Todo completo con PDF): ' + CAST(@ContadorNivel4 AS VARCHAR) + ' (' +
+      CAST(CAST(@ContadorNivel4 * 100.0 / @ContadorCertificados AS DECIMAL(5,2)) AS VARCHAR) + '%)';
+PRINT '';
+
 PRINT '--- DISTRIBUCIÓN POR ESTADO DE CERTIFICADO ---';
 
 SELECT
