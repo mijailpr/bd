@@ -313,16 +313,65 @@ BEGIN
     -- =============================================
     IF @TendraPDF = 1
     BEGIN
-        DECLARE @RutaPDF NVARCHAR(500);
-        DECLARE @NombreArchivo NVARCHAR(300);
+        -- =============================================
+        -- VALIDACIONES OBLIGATORIAS ANTES DE GENERAR PDF
+        -- =============================================
+        DECLARE @PuedeGenerarPDF BIT = 1;
+        DECLARE @MensajeValidacion NVARCHAR(500) = '';
 
-        SET @NombreArchivo = @CodigoCertificado + '_' + REPLACE(@DNI, ' ', '') + '.pdf';
-        SET @RutaPDF = 'https://storage.medivalle.com/certificados/' + @NombreArchivo;
+        -- Validar que todos los datos del certificado están completos
+        IF @DoctorId IS NULL OR @CodigoCertificado IS NULL OR
+           @TipoResultado IS NULL OR @FechaEvaluacion IS NULL OR
+           @FechaCaducidad IS NULL
+        BEGIN
+            SET @PuedeGenerarPDF = 0;
+            SET @MensajeValidacion = 'Datos del certificado incompletos para PersonaProgramaId: ' + CAST(@PersonaProgramaId AS VARCHAR);
+        END
 
-        -- Guardar PDF
-        EXEC S_UPD_GUARDAR_PDF_CERTIFICADO
-            @p_PersonaProgramaId = @PersonaProgramaId,
-            @p_RutaArchivoPDF = @RutaPDF;
+        -- Validar que TODOS los exámenes requeridos están realizados
+        DECLARE @ExamenesRequeridosTotal INT;
+        DECLARE @ExamenesRealizadosTotal INT;
+
+        SELECT @ExamenesRequeridosTotal = COUNT(*)
+        FROM T_PROTOCOLO_EMO PRO
+        WHERE PRO.PerfilTipoEMOId = @PerfilTipoEMOId
+          AND PRO.EsRequerido = 1
+          AND PRO.Estado = '1';
+
+        SELECT @ExamenesRealizadosTotal = COUNT(*)
+        FROM T_RESULTADO_EMO RE
+        INNER JOIN T_PROTOCOLO_EMO PRO ON RE.ProtocoloEMOId = PRO.Id
+        WHERE RE.PersonaProgramaId = @PersonaProgramaId
+          AND RE.Realizado = 1
+          AND RE.Estado = '1'
+          AND PRO.EsRequerido = 1;
+
+        IF @ExamenesRequeridosTotal > @ExamenesRealizadosTotal
+        BEGIN
+            SET @PuedeGenerarPDF = 0;
+            SET @MensajeValidacion = 'Exámenes incompletos para PersonaProgramaId: ' + CAST(@PersonaProgramaId AS VARCHAR) +
+                                    ' (Realizados: ' + CAST(@ExamenesRealizadosTotal AS VARCHAR) +
+                                    '/' + CAST(@ExamenesRequeridosTotal AS VARCHAR) + ')';
+        END
+
+        -- Solo generar PDF si todas las validaciones pasan
+        IF @PuedeGenerarPDF = 1
+        BEGIN
+            DECLARE @RutaPDF NVARCHAR(500);
+
+            -- Usar formato: certificados/{personaprogramaid}/certificado.pdf
+            SET @RutaPDF = 'certificados/' + CAST(@PersonaProgramaId AS VARCHAR) + '/certificado.pdf';
+
+            -- Guardar PDF
+            EXEC S_UPD_GUARDAR_PDF_CERTIFICADO
+                @p_PersonaProgramaId = @PersonaProgramaId,
+                @p_RutaArchivoPDF = @RutaPDF;
+        END
+        ELSE
+        BEGIN
+            -- Mostrar mensaje de advertencia si no se puede generar PDF
+            PRINT 'ADVERTENCIA: ' + @MensajeValidacion;
+        END
     END
 
     -- Progreso cada 20 certificados
