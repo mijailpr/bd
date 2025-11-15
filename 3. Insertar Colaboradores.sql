@@ -1,10 +1,10 @@
 -- ============================================
 -- INSERTAR COLABORADORES (PARTICIPANTES)
--- Sistema EMO - 20 personas por programa
+-- Sistema EMO - 150 personas por programa
 -- ============================================
 --
 -- INSTRUCCIONES:
--- Este script inserta 20 colaboradores por CADA programa EMO existente
+-- Este script inserta 150 colaboradores por CADA programa EMO existente
 -- utilizando el procedimiento S_INS_UPD_PERSONA_PROGRAMA
 --
 -- REGLAS DE NEGOCIO APLICADAS:
@@ -19,7 +19,7 @@
 -- FUNCIONAMIENTO DINÁMICO:
 -- - El script consulta TODOS los programas EMO activos
 -- - Para cada programa, consulta TODOS sus perfiles ocupacionales con tipo INGRESO
--- - Distribuye 20 colaboradores entre los perfiles disponibles
+-- - Distribuye 150 colaboradores entre los perfiles disponibles
 -- - Si un programa no tiene perfiles, se omite con advertencia
 -- - DNIs realistas: 8 dígitos con prefijos 62-73 (rango típico de DNIs peruanos)
 --
@@ -36,7 +36,7 @@ PRINT '╚═══════════════════════�
 PRINT '';
 
 -- Variables globales
-DECLARE @TotalColaboradoresInsertar INT = 20; -- Colaboradores por programa
+DECLARE @TotalColaboradoresInsertar INT = 150; -- Colaboradores por programa
 DECLARE @DNIsGenerados TABLE
                        (
                            DNI NVARCHAR(20)
