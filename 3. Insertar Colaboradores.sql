@@ -1095,6 +1095,11 @@ WHILE @@FETCH_STATUS = 0
                                                                ELSE 'Rodríguez Mendoza' -- fallback por si acaso
                             END;
 
+                        -- Generar teléfono aleatorio: 98 + 6 dígitos
+                        DECLARE @Telefono NVARCHAR(20);
+                        DECLARE @Digitos6 INT = 100000 + CAST((RAND() * 899999) AS INT); -- Entre 100000 y 999999
+                        SET @Telefono = '98' + CAST(@Digitos6 AS NVARCHAR(6));
+
                         -- Insertar colaborador
                         EXEC S_INS_UPD_PERSONA_PROGRAMA
                              NULL, -- Nuevo registro
@@ -1102,7 +1107,7 @@ WHILE @@FETCH_STATUS = 0
                              @Apellidos,
                              'DNI',
                              @DNI, -- DNI único aleatorio
-                             NULL, -- Telefono
+                             @Telefono, -- Telefono: 98 + 6 dígitos aleatorios
                              NULL, -- Correo
                              @Edad,
                              @Genero,
