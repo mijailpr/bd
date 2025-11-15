@@ -98,7 +98,7 @@ PRINT '════════════════════════�
 PRINT '  PASO 3: CREANDO PROGRAMAS EMO';
 PRINT '═══════════════════════════════════════════════════════════';
 
-DECLARE @ProgramaId1 INT, @ProgramaId2 INT, @ProgramaId3 INT;
+DECLARE @ProgramaId1 INT, @ProgramaId2 INT;
 
 EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Operativo - 2023', @EntidadBancoId;
 SELECT TOP 1 @ProgramaId1 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadBancoId AND Nombre LIKE '%Operativo%' AND Estado = '1' ORDER BY Id DESC;
@@ -107,10 +107,6 @@ PRINT '✓ Programa 1 creado - ID: ' + CAST(@ProgramaId1 AS VARCHAR) + ' (Person
 EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Comercial y Soporte - 2024', @EntidadBancoId;
 SELECT TOP 1 @ProgramaId2 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadBancoId AND Nombre LIKE '%Comercial%' AND Estado = '1' ORDER BY Id DESC;
 PRINT '✓ Programa 2 creado - ID: ' + CAST(@ProgramaId2 AS VARCHAR) + ' (Personal Comercial y Soporte - 2024)';
-
-EXEC S_INS_UPD_PROGRAMA_EMO NULL, 'Personal Administrativo y Gerencial - 2025', @EntidadBancoId;
-SELECT TOP 1 @ProgramaId3 = Id FROM T_PROGRAMA_EMO WHERE EntidadId = @EntidadBancoId AND Nombre LIKE '%Administrativo%' AND Estado = '1' ORDER BY Id DESC;
-PRINT '✓ Programa 3 creado - ID: ' + CAST(@ProgramaId3 AS VARCHAR) + ' (Personal Administrativo y Gerencial - 2025)';
 PRINT '';
 
 -- ============================================
@@ -775,8 +771,6 @@ EXEC S_INS_UPD_PROTOCOLO_EMO @PerfilId, 'PERIÓDICO', @ExamenId, 1;
 
 PRINT '  ✓ Programa 2 completado: 6 perfiles';
 PRINT '';
-
--- Continúo con Programa 3 en el siguiente mensaje...
 
 SET NOCOUNT OFF;
 GO
