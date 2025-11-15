@@ -17,7 +17,7 @@
 --                - Datos completos OBLIGATORIO
 --                - TODOS exámenes OBLIGATORIO
 --                - RutaArchivoPDF: certificados/{personaprogramaid}/certificado.pdf
---                - Estados: Vigente (60%), Por vencer (20%), Vencido (20%)
+--                - Estados: Aleatorio (33% cada uno: Vigente, Por vencer, Vencido)
 --
 --              * FechaCaducidad = FechaEvaluacion + 2 años (SIEMPRE)
 --              * Puestos: UNO de dos (PuestoAlQuePostula O PuestoActual)
@@ -69,7 +69,7 @@ PRINT '    * 1B (10%): 20-40% exámenes';
 PRINT '    * 1C (10%): 50-70% exámenes';
 PRINT '    * 1D (10%): 100% exámenes';
 PRINT '  - 50% Certificados CON PDF (Tipo 2: validaciones completas)';
-PRINT '    * Estados con PDF: Vigente (60%), Por vencer (20%), Vencido (20%)';
+PRINT '    * Estados con PDF: Aleatorio (~33% cada uno: Vigente, Por vencer, Vencido)';
 PRINT '';
 
 -- =============================================
@@ -343,22 +343,22 @@ BEGIN
 
     IF @TipoCertificado = 2
     BEGIN
-        -- TIPO 2 (Con PDF): Distribuir entre Vigente/Por vencer/Vencido
+        -- TIPO 2 (Con PDF): Distribuir aleatoriamente entre Vigente/Por vencer/Vencido
         DECLARE @RandomEstado INT = ABS(CHECKSUM(NEWID())) % 100;
 
-        IF @RandomEstado < 20
+        IF @RandomEstado < 33
         BEGIN
-            -- 20%: VENCIDO
+            -- 33%: VENCIDO
             SET @DiasAtras = 731 + (ABS(CHECKSUM(NEWID())) % 365);  -- 731-1095 días atrás
         END
-        ELSE IF @RandomEstado < 40
+        ELSE IF @RandomEstado < 66
         BEGIN
-            -- 20%: POR VENCER (0-60 días restantes)
+            -- 33%: POR VENCER (0-60 días restantes)
             SET @DiasAtras = 670 + (ABS(CHECKSUM(NEWID())) % 61);  -- 670-730 días atrás
         END
         ELSE
         BEGIN
-            -- 60%: VIGENTE (>60 días restantes)
+            -- 34%: VIGENTE (>60 días restantes)
             SET @DiasAtras = ABS(CHECKSUM(NEWID())) % 670;  -- 0-669 días atrás
         END
     END

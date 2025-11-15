@@ -132,10 +132,12 @@ Certificados completos con validaciones obligatorias.
 - ✅ RutaArchivoPDF: `certificados/{personaprogramaid}/certificado.pdf`
 - ✅ Validaciones antes de generar PDF
 
-**Estados por Fechas:**
-- 60% → Vigente (>60 días restantes)
-- 20% → Por vencer (0-60 días restantes)
-- 20% → Vencido (fecha ya pasó)
+**Estados por Fechas (Aleatorio):**
+- ~33% → Vigente (>60 días restantes)
+- ~33% → Por vencer (0-60 días restantes)
+- ~33% → Vencido (fecha ya pasó)
+
+**Nota:** La distribución es aleatoria para cada certificado individual, por lo que los porcentajes finales pueden variar (ej: 35%, 30%, 35% o 28%, 38%, 34%, etc.)
 
 ---
 
@@ -276,9 +278,9 @@ ORDER BY NEWID();
 
 ### Para TIPO 2 (con PDF):
 
-La fecha de evaluación varía para generar diferentes estados:
+La fecha de evaluación varía para generar diferentes estados de forma **aleatoria**:
 
-#### **Estado: VENCIDO (20%)**
+#### **Estado: VENCIDO (33%)**
 ```sql
 -- Para que esté vencido: FechaEvaluacion + 730 días < HOY
 @DiasAtras = 731-1095  -- Vencido hace 1 día hasta 1 año
@@ -287,7 +289,7 @@ La fecha de evaluación varía para generar diferentes estados:
 -- Resultado: FechaCaducidad < HOY (ya venció)
 ```
 
-#### **Estado: POR VENCER (20%)**
+#### **Estado: POR VENCER (33%)**
 ```sql
 -- Para que le queden 0-60 días
 @DiasAtras = 670-730  -- Evaluación hace 670-730 días
@@ -296,13 +298,21 @@ La fecha de evaluación varía para generar diferentes estados:
 -- Resultado: Faltan 0-60 días para vencer
 ```
 
-#### **Estado: VIGENTE (60%)**
+#### **Estado: VIGENTE (34%)**
 ```sql
 -- Para que le queden más de 60 días
 @DiasAtras = 0-669  -- Evaluación hace 0-669 días
 @FechaEvaluacion = GETDATE() - @DiasAtras
 @FechaCaducidad = @FechaEvaluacion + 730 días
 -- Resultado: Faltan más de 60 días
+```
+
+**Implementación:**
+```sql
+Random 0-100:
+├─ 0-32 (33%) → VENCIDO
+├─ 33-65 (33%) → POR VENCER
+└─ 66-99 (34%) → VIGENTE
 ```
 
 ---
@@ -477,9 +487,12 @@ Total sin PDF: 40 (40%)
 
 --- CERTIFICADOS CON PDF (Tipo 2) ---
 Total con PDF: 50 (50%)
-  - Vigente (>60 días): 30 (60%)
-  - Por vencer (0-60 días): 10 (20%)
-  - Vencido: 10 (20%)
+  - Vigente (>60 días): ~17 (~33%)
+  - Por vencer (0-60 días): ~17 (~33%)
+  - Vencido: ~16 (~33%)
+
+Nota: Los números exactos varían por la distribución aleatoria.
+Ejemplos posibles: (18, 16, 16) o (15, 20, 15) o (17, 17, 16), etc.
 ```
 
 ---
