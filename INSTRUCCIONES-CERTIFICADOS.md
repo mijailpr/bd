@@ -38,39 +38,36 @@ END
 
 ## 📄 TIPO 1: CERTIFICADO SIN PDF (40%)
 
-Certificados en proceso, con diferentes niveles de completitud.
+Certificados en proceso, con datos completos pero diferentes niveles de exámenes realizados.
+
+**REGLA IMPORTANTE:** TODOS los certificados Tipo 1 tienen datos completos. La diferencia está SOLO en el porcentaje de exámenes realizados.
 
 ### Sub-Tipos (Distribución dentro del 40%):
 
-#### **1A - Datos Mínimos (25% del Tipo 1 = 10% total)**
+#### **1A - Datos Completos + Sin Exámenes (25% del Tipo 1 = 10% total)**
 
-**Campos con valor:**
+**Campos completos:**
 ```sql
-- Código: Generado automáticamente
-- Password: DNI
-- PersonaProgramaId: Asignado
-```
-
-**Campos NULL/Vacíos:**
-```sql
-- DoctorId: NULL
-- TipoEvaluacion: NULL
-- TipoResultado: NULL
-- PuestoAlQuePostula: NULL
-- PuestoActual: NULL
-- Observaciones: NULL
-- Conclusiones: NULL
-- Restricciones: NULL
-- FechaEvaluacion: NULL (porque no hay datos completos)
-- FechaCaducidad: NULL (porque no hay datos completos)
+- Todos los datos del certificado (ver sección "Generación de Datos Completos")
+- DoctorId: ✅ Asignado aleatoriamente
+- TipoEvaluacion: ✅ Generado aleatoriamente
+- TipoResultado: ✅ Generado aleatoriamente
+- Puestos: ✅ UNO de dos (PuestoAlQuePostula O PuestoActual)
+- Observaciones: ⚪ 60% probabilidad
+- Conclusiones: ⚪ 70% probabilidad
+- Restricciones: ⚪ Condicional según resultado
+- Fechas: ✅ FechaEvaluacion y FechaCaducidad
 ```
 
 **Exámenes:**
-- ❌ NO se registran exámenes
+- ❌ 0% de exámenes realizados
+
+**PDF:**
+- ❌ RutaArchivoPDF = vacío/NULL
 
 ---
 
-#### **1B - Datos Completos, Sin Exámenes (25% del Tipo 1 = 10% total)**
+#### **1B - Datos Completos + Exámenes Parciales Bajo (25% del Tipo 1 = 10% total)**
 
 **Campos completos:**
 ```sql
@@ -79,20 +76,26 @@ Certificados en proceso, con diferentes niveles de completitud.
 ```
 
 **Exámenes:**
-- ❌ 0% de exámenes realizados
+- ⚠️ PARCIALES BAJO: 20-40% aleatorio de los exámenes requeridos
+
+**PDF:**
+- ❌ RutaArchivoPDF = vacío/NULL
 
 ---
 
-#### **1C - Datos Completos + Exámenes Parciales (25% del Tipo 1 = 10% total)**
+#### **1C - Datos Completos + Exámenes Parciales Medio (25% del Tipo 1 = 10% total)**
 
 **Campos completos:**
 ```sql
-- Todos los datos del certificado
+- Todos los datos del certificado (ver sección "Generación de Datos Completos")
 - Fechas: ✅ FechaEvaluacion y FechaCaducidad
 ```
 
 **Exámenes:**
-- ⚠️ PARCIALES: 30-70% aleatorio de los exámenes requeridos
+- ⚠️ PARCIALES MEDIO: 50-70% aleatorio de los exámenes requeridos
+
+**PDF:**
+- ❌ RutaArchivoPDF = vacío/NULL
 
 ---
 
@@ -100,7 +103,7 @@ Certificados en proceso, con diferentes niveles de completitud.
 
 **Campos completos:**
 ```sql
-- Todos los datos del certificado
+- Todos los datos del certificado (ver sección "Generación de Datos Completos")
 - Fechas: ✅ FechaEvaluacion y FechaCaducidad
 ```
 
@@ -129,10 +132,12 @@ Certificados completos con validaciones obligatorias.
 - ✅ RutaArchivoPDF: `certificados/{personaprogramaid}/certificado.pdf`
 - ✅ Validaciones antes de generar PDF
 
-**Estados por Fechas:**
-- 60% → Vigente (>60 días restantes)
-- 20% → Por vencer (0-60 días restantes)
-- 20% → Vencido (fecha ya pasó)
+**Estados por Fechas (Aleatorio):**
+- ~33% → Vigente (>60 días restantes)
+- ~33% → Por vencer (0-60 días restantes)
+- ~33% → Vencido (fecha ya pasó)
+
+**Nota:** La distribución es aleatoria para cada certificado individual, por lo que los porcentajes finales pueden variar (ej: 35%, 30%, 35% o 28%, 38%, 34%, etc.)
 
 ---
 
@@ -273,9 +278,9 @@ ORDER BY NEWID();
 
 ### Para TIPO 2 (con PDF):
 
-La fecha de evaluación varía para generar diferentes estados:
+La fecha de evaluación varía para generar diferentes estados de forma **aleatoria**:
 
-#### **Estado: VENCIDO (20%)**
+#### **Estado: VENCIDO (33%)**
 ```sql
 -- Para que esté vencido: FechaEvaluacion + 730 días < HOY
 @DiasAtras = 731-1095  -- Vencido hace 1 día hasta 1 año
@@ -284,7 +289,7 @@ La fecha de evaluación varía para generar diferentes estados:
 -- Resultado: FechaCaducidad < HOY (ya venció)
 ```
 
-#### **Estado: POR VENCER (20%)**
+#### **Estado: POR VENCER (33%)**
 ```sql
 -- Para que le queden 0-60 días
 @DiasAtras = 670-730  -- Evaluación hace 670-730 días
@@ -293,13 +298,21 @@ La fecha de evaluación varía para generar diferentes estados:
 -- Resultado: Faltan 0-60 días para vencer
 ```
 
-#### **Estado: VIGENTE (60%)**
+#### **Estado: VIGENTE (34%)**
 ```sql
 -- Para que le queden más de 60 días
 @DiasAtras = 0-669  -- Evaluación hace 0-669 días
 @FechaEvaluacion = GETDATE() - @DiasAtras
 @FechaCaducidad = @FechaEvaluacion + 730 días
 -- Resultado: Faltan más de 60 días
+```
+
+**Implementación:**
+```sql
+Random 0-100:
+├─ 0-32 (33%) → VENCIDO
+├─ 33-65 (33%) → POR VENCER
+└─ 66-99 (34%) → VIGENTE
 ```
 
 ---
@@ -406,24 +419,25 @@ Para cada colaborador en T_PERSONA_PROGRAMA:
 │  ├─ 10-50 (40%) → TIPO 1: SIN PDF
 │  │                        │
 │  │                        ├─ Generar Random sub-tipo 0-100:
-│  │                        │  ├─ < 25 → 1A: Datos mínimos
-│  │                        │  │         - Insertar certificado con campos básicos
-│  │                        │  │         - NO insertar exámenes
-│  │                        │  │
-│  │                        │  ├─ 25-50 → 1B: Completo sin exámenes
+│  │                        │  ├─ < 25 → 1A: Completo + 0% exámenes
 │  │                        │  │         - Generar datos completos
 │  │                        │  │         - Insertar certificado
-│  │                        │  │         - NO insertar exámenes
+│  │                        │  │         - NO insertar exámenes (0%)
 │  │                        │  │
-│  │                        │  ├─ 50-75 → 1C: Completo + parcial
+│  │                        │  ├─ 25-50 → 1B: Completo + 20-40% exámenes
 │  │                        │  │         - Generar datos completos
 │  │                        │  │         - Insertar certificado
-│  │                        │  │         - Insertar 30-70% exámenes
+│  │                        │  │         - Insertar 20-40% exámenes
 │  │                        │  │
-│  │                        │  └─ >= 75 → 1D: Completo + todos
+│  │                        │  ├─ 50-75 → 1C: Completo + 50-70% exámenes
+│  │                        │  │         - Generar datos completos
+│  │                        │  │         - Insertar certificado
+│  │                        │  │         - Insertar 50-70% exámenes
+│  │                        │  │
+│  │                        │  └─ >= 75 → 1D: Completo + 100% exámenes
 │  │                        │            - Generar datos completos
 │  │                        │            - Insertar certificado
-│  │                        │            - Insertar TODOS exámenes
+│  │                        │            - Insertar TODOS exámenes (100%)
 │  │                        │
 │  │                        └─ Incrementar @ContadorSinPDF
 │  │
@@ -432,7 +446,7 @@ Para cada colaborador en T_PERSONA_PROGRAMA:
 │                             ├─ Generar datos completos
 │                             ├─ Generar fechas (según estado deseado)
 │                             ├─ Insertar certificado
-│                             ├─ Insertar TODOS exámenes (obligatorio)
+│                             ├─ Insertar TODOS exámenes (obligatorio 100%)
 │                             ├─ Validar datos + exámenes
 │                             ├─ SI pasa validación:
 │                             │  └─ Guardar PDF
@@ -447,11 +461,11 @@ Para cada colaborador en T_PERSONA_PROGRAMA:
 
 ```sql
 DECLARE @ContadorSinCertificado INT = 0;  -- Tipo 0
-DECLARE @ContadorDatosMinimos INT = 0;    -- Tipo 1A
-DECLARE @ContadorSinExamenes INT = 0;     -- Tipo 1B
-DECLARE @ContadorParcial INT = 0;         -- Tipo 1C
-DECLARE @ContadorCompletoSinPDF INT = 0;  -- Tipo 1D
-DECLARE @ContadorConPDF INT = 0;          -- Tipo 2
+DECLARE @ContadorDatosMinimos INT = 0;    -- Tipo 1A: Completo + 0% exámenes
+DECLARE @ContadorSinExamenes INT = 0;     -- Tipo 1B: Completo + 20-40% exámenes
+DECLARE @ContadorParcial INT = 0;         -- Tipo 1C: Completo + 50-70% exámenes
+DECLARE @ContadorCompletoSinPDF INT = 0;  -- Tipo 1D: Completo + 100% exámenes
+DECLARE @ContadorConPDF INT = 0;          -- Tipo 2: Con PDF
 DECLARE @ContadorVigente INT = 0;         -- Tipo 2 vigente
 DECLARE @ContadorPorVencer INT = 0;       -- Tipo 2 por vencer
 DECLARE @ContadorVencido INT = 0;         -- Tipo 2 vencido
@@ -466,16 +480,19 @@ Sin certificado (Tipo 0): 10 (10%)
 
 --- CERTIFICADOS SIN PDF (Tipo 1) ---
 Total sin PDF: 40 (40%)
-  - Datos mínimos: 10 (25%)
-  - Completo sin exámenes: 10 (25%)
-  - Completo + parcial: 10 (25%)
-  - Completo + todos exámenes: 10 (25%)
+  - 1A (Completo + 0% exámenes): 10 (25%)
+  - 1B (Completo + 20-40% exámenes): 10 (25%)
+  - 1C (Completo + 50-70% exámenes): 10 (25%)
+  - 1D (Completo + 100% exámenes): 10 (25%)
 
 --- CERTIFICADOS CON PDF (Tipo 2) ---
 Total con PDF: 50 (50%)
-  - Vigente (>60 días): 30 (60%)
-  - Por vencer (0-60 días): 10 (20%)
-  - Vencido: 10 (20%)
+  - Vigente (>60 días): ~17 (~33%)
+  - Por vencer (0-60 días): ~17 (~33%)
+  - Vencido: ~16 (~33%)
+
+Nota: Los números exactos varían por la distribución aleatoria.
+Ejemplos posibles: (18, 16, 16) o (15, 20, 15) o (17, 17, 16), etc.
 ```
 
 ---
